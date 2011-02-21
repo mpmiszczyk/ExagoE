@@ -36,8 +36,6 @@
 
 -export([collect/3, collect/4, sort_events/1]).
 
--compile(export_all).
-
 %% @doc Combines Event Sources based on the type of combination, which can be either 'absorb' or 
 %% 'append'. The difference between the two is that absorb is used where relational log data is 
 %% absorbed into another event source, and then discarded. Append is used when two relational

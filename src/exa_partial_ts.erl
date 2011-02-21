@@ -37,9 +37,11 @@
 -module(exa_partial_ts).
 
 -export([parse/2]).
-
 -export([extract_digits/1]).
 
+%% @doc Extracts the digits from a string
+-spec(extract_digits (DigitString::list()) 
+      -> ListOfIntegers::list()).
 extract_digits(String) ->
     lists:map(fun (S) ->
 		      case string:to_integer(S) of
@@ -54,5 +56,8 @@ extract_digits(String) ->
 					end
 				end, re:split(String, "[^0-9]", [{return, list}]))).
 
+%% @doc Parse a custom timestamp
+-spec(parse (FieldString::list(), TimestampOrder::list()) 
+      -> Timestamp::list()).
 parse(FieldString, TimestampOrder) ->
     lists:zip(extract_digits(FieldString), TimestampOrder).

@@ -38,21 +38,31 @@
 -export([find_field_by_identifier/2, find_field_by_identifier_and_value/3]).
 -export([extract_field_value_by_id/2, extract_field_value_by_type/2]).
 
-%%
+%% @doc Removes an event source from a list of event sources by its name
+-spec(remove_event_source_by_name (EventSourceName::any(), EventSources::list()) 
+      -> EventSources::list()).
 remove_event_source_by_name(EventSourceNameReference, EventSources) ->
-    remove_event_source_by_name_(EventSourceNameReference, EventSources, []).
+    remove_event_source_by_name(EventSourceNameReference, EventSources, []).
 
-remove_event_source_by_name_(_EventSourceNameReference, [], Result) ->
+remove_event_source_by_name(_EventSourceNameReference, [], Result) ->
     lists:reverse(Result);
-remove_event_source_by_name_(EventSourceNameReference, [{EventSourceName, FieldList}|EventSources], Result) ->
+remove_event_source_by_name(EventSourceNameReference, [{EventSourceName, FieldList}|EventSources], Result) ->
     case EventSourceName =:= EventSourceNameReference of
 	true  -> 
-	    remove_event_source_by_name_(EventSourceNameReference, EventSources, Result);
+	    remove_event_source_by_name(EventSourceNameReference, EventSources, Result);
 	false -> 
-	    remove_event_source_by_name_(EventSourceNameReference, EventSources, [{EventSourceName, FieldList}|Result])
+	    remove_event_source_by_name(EventSourceNameReference, EventSources, [{EventSourceName, FieldList}|Result])
     end.
 
-%%
+%% @doc Find a field by its identifier in a list of fields
+find_field(id, _,  []) ->  undefined;
+find_field(id, Id, [{Name, {field_identifier, Id}, Value}|_FieldSet]) ->
+    {success, {Name, {field_identifier, Id}, Value}};
+find_field(id, Id0, [{_, {field_identifier, _Id1}, _}|FieldSet]) ->
+    find_field(id, Id0, FieldSet).
+
+-spec(find_field_by_identifier (Identifier::any(), FieldSet::list())
+      -> Field::(tuple() | undefined)).
 find_field_by_identifier(_Identifier, []) ->
     undefined;
 find_field_by_identifier(Identifier, [{FieldName, {field_identifier, FieldIdentifier}, FieldValue}|Events]) ->
@@ -61,7 +71,9 @@ find_field_by_identifier(Identifier, [{FieldName, {field_identifier, FieldIdenti
 	false -> find_field_by_identifier(Identifier, Events)
     end.
 
-%%
+%% @doc Find a field by its identifier and its value
+-spec(find_field_by_identifier_and_value (Identifier::any(), Value::any(), FieldSet::list())
+      -> Field::(tuple() | undefined)).
 find_field_by_identifier_and_value(_Identifier, _Value, []) ->
     undefined;
 find_field_by_identifier_and_value(Identifier, Value, [{FieldName, 
@@ -72,7 +84,9 @@ find_field_by_identifier_and_value(Identifier, Value, [{FieldName,
 	false -> find_field_by_identifier_and_value(Identifier, Value, Events)
     end.
 
-%%
+%% @doc Extract a fields value according to its type
+-spec(extract_field_value_by_type (FieldType::atom(), FieldSet::list())
+      -> FieldValue::any()).
 extract_field_value_by_type(_FieldType, []) ->
     undefined;
 extract_field_value_by_type(FieldType, [Field|Fields]) ->
@@ -86,7 +100,9 @@ extract_field_value_by_type(FieldType, [Field|Fields]) ->
 	    extract_field_value_by_type(FieldType, Fields)
     end.
 
-%%
+%% @doc Extract a fields value according to its identifier
+-spec(extract_field_value_by_id (Identifier::list(), FieldSet::list())
+      -> FieldValue::any()).
 extract_field_value_by_id(_Identifier, []) ->
     undefined;
 extract_field_value_by_id(Identifier, [Field|Fields]) ->
