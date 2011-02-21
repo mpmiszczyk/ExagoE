@@ -109,14 +109,14 @@ apply_filters([_|Transmuters], CollectedSources) ->
 %%
 source_transitions(EventSource) ->
     lists:map(fun (Instance) ->
-		      [Transition || {Transition, State} <- Instance]
+		      [Transition || {Transition, _State} <- Instance]
 	      end, exa_sm:sort_fsms(exa_sm:strip_results([EventSource]))).
 
 %%
 resolve_foreign_keys(EventSources, StateOption) ->
     resolve_foreign_keys_(EventSources, StateOption, EventSources, []).
 
-resolve_foreign_keys_([], StateOption, _EventSourcesUnchanged, ResolvedSources) ->
+resolve_foreign_keys_([], _StateOption, _EventSourcesUnchanged, ResolvedSources) ->
     lists:reverse(ResolvedSources);
 resolve_foreign_keys_([{EventSourceName, Events}|EventSources], StateOption, EventSourcesUnchanged, ResolvedSources) ->
     resolve_foreign_keys_(EventSources, StateOption, EventSourcesUnchanged,
@@ -129,7 +129,7 @@ resolve_foreign_key({ResultType, FieldList, FormatStatus}, EventSourceName, Stat
 	source_state ->
 	    {ResultType, lists:flatten([{state, 
 					 {field_identifier, EventSourceName},
-					 {field_value, {string, EventSourceName}}}] ++
+					 {field_value, EventSourceName}}] ++
 					   [resolve_field(Field, EventSources) || Field <- FieldList]), FormatStatus};
 	_Other       ->
 	    {ResultType, lists:flatten([resolve_field(Field, EventSources) || Field <- FieldList]), FormatStatus}

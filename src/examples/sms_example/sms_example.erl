@@ -81,4 +81,5 @@ combined() ->
     {"combined", exa_es:collect([ack_sms(), req_ack(), req_err(), req(), req_sms()], append, source_state)}.
 
 generate_model() ->
-    exa_sm:generate_visualizations([exa_sm:generate_state_machine(combined(), [])],0).
+    exa_sm:generate_state_machine(combined(), [{uniques, true}]).
+
