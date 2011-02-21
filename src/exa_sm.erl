@@ -44,10 +44,16 @@
 
 -compile(export_all).
 
+%% @doc Extracts the field sets from the internal result format
+-spec(strip_results (Source::list())
+      -> FieldSets::list()).	     
 strip_results(Sources) ->
-    [Event || {ResultType, Event, FormatResult} <- 
-		  lists:flatten([ResultList || {SourceName, ResultList} <- Sources])].
+    [FieldSet || {_ResultType, FieldSet, _FormatResult} <- 
+		     lists:flatten([ResultSet || {_SourceName, ResultSet} <- Sources])].
 
+%% @doc Looks up a field by type in the field sets
+-spec(lookup_field_by_type (Type::atom(), FieldSet::list())
+      -> Field::any()).	     
 lookup_field_by_type(_Type, []) ->
     undefined;
 lookup_field_by_type(Type, [{FieldType, FieldIdentifier, FieldValue}|Fields]) ->
@@ -58,19 +64,21 @@ lookup_field_by_type(Type, [{FieldType, FieldIdentifier, FieldValue}|Fields]) ->
 lookup_field_by_type(Type, [_|Fields]) ->
     lookup_field_by_type(Type, Fields).
 
+%% @doc Finds all unique instance_keys in a set of events
 unique_instance_keys(EventList) ->
     ordsets:from_list([FieldValue 
-		       || {instance_key, FieldIdentifier, {field_value, FieldValue}} 
+		       || {instance_key, _FieldIdentifier, {field_value, FieldValue}} 
 			      <- [lookup_field_by_type(instance_key, Event) || Event <- EventList]]).
 
-split_by_instance_key(EventList, [], SplitList) ->
+%% @doc Splits a list of events by its instance key
+split_by_instance_key(_EventList, [], SplitList) ->
     lists:reverse(SplitList);
 split_by_instance_key(EventList, [Key|UniqueInstanceKeys], SplitList) ->
     split_by_instance_key(EventList, UniqueInstanceKeys, 
 			  [{instance, Key, 
 			    lists:filter(fun (Event) -> 
 						 case lookup_field_by_type(instance_key, Event) of
-						     {instance_key, FieldIdentifier, {field_value, FieldValue}} ->
+						     {instance_key, _FieldIdentifier, {field_value, FieldValue}} ->
 							 FieldValue =:= Key;
 						     undefined ->
 							 false
@@ -78,14 +86,14 @@ split_by_instance_key(EventList, [Key|UniqueInstanceKeys], SplitList) ->
 					 end, EventList)}
 			   |SplitList]).
 
-fold_flat_instances([], Fun, OuterResult) ->
+fold_flat_instances([], _Fun, OuterResult) ->
     lists:reverse(OuterResult);
-fold_flat_instances([{instance, Key, EventList}|Instances], Fun, OuterResult) ->
+fold_flat_instances([{instance, _Key, EventList}|Instances], Fun, OuterResult) ->
     fold_flat_instances(Instances, Fun, 
 			[lists:reverse(lists:foldl(Fun, [], EventList))
 			 |OuterResult]).
 
-fold_instances([], Fun, OuterResult) ->
+fold_instances([], _Fun, OuterResult) ->
     lists:reverse(OuterResult);
 fold_instances([{instance, Key, EventList}|Instances], Fun, OuterResult) ->
     fold_instances(Instances, Fun,
@@ -126,13 +134,12 @@ augment_state(_StateAtom, [], _StateModifier, Result) ->
     Result;
 augment_state(Atom, [{N, Atom}|States], StateModifier, Result) ->
     augment_state(Atom, States, StateModifier, [StateModifier({N, Atom})|Result]);
-augment_state(Atom, [{N, Atom, StateType}|States], StateModifier, Result) ->
+augment_state(Atom, [{N, Atom, StateType}|States], StateModifier, _Result) ->
     augment_state(Atom, States, StateModifier, [StateModifier({N, Atom, StateType})]);
 augment_state(Atom, [{N, StateAtom}|States], StateModifier, Result) ->    
     augment_state(Atom, States, StateModifier, [{N, StateAtom}|Result]);
 augment_state(Atom, [{N, StateAtom, StateType}|States], StateModifier, Result) -> 
     augment_state(Atom, States, StateModifier, [{N, StateAtom, StateType}|Result]).
-
 
 augment_model({States, Transitions}, []) ->
     {lists:reverse(States), Transitions};
@@ -153,7 +160,7 @@ augment_models([FSMModel|FSMModels], [StateFormat|StateFormats], AugmentedModels
     augment_models(FSMModels, StateFormats, [augment_model(FSMModel, StateFormat)|AugmentedModels]).
 
 %% generate fsm
-map2(Fun, [], [], Result) ->
+map2(_Fun, [], [], Result) ->
     lists:reverse(Result);
 map2(Fun, [H1|List1], [H2|List2], Result) ->
     map2(Fun, List1, List2, [Fun(H1, H2)|Result]).
@@ -169,11 +176,13 @@ generate_state_machine(EventSource, Opt) ->
     %%
     case proplists:get_value(uniques, Opt, false) of
 	true  ->
-	    Nodes   = lists:map(fun labelled_fsms_to_nodes/1, LabelledFSMs),
-	    Uniques = lists:map(fun (X) -> collect_uniques(X, []) end,
-				map2(fun (Node, LabelledFSM) ->
-					     combine(Node, LabelledFSM)
-				     end, Nodes, LabelledFSMs, [])),
+	    Nodes    = lists:map(fun labelled_fsms_to_nodes/1, LabelledFSMs),
+	    UniqueTs = 
+		lists:map(fun (X) -> collect_uniques(X, []) end,
+			  map2(fun (Node, LabelledFSM) ->
+				       combine(Node, LabelledFSM)
+			       end, Nodes, LabelledFSMs, [])),
+	    Uniques  = ordsets:from_list(UniqueTs),
 	    CombinedFSMs = 
 		lists:map(fun (UniqueFSM) ->
 				  lists:map(fun to_node/1, 
@@ -213,17 +222,17 @@ generate_state_machine(EventSource, Opt) ->
     end.
 
 %% state_machine_states
-state_machine_states({[], Transitions, AutoGenFlag}, Result) ->
+state_machine_states({[], _Transitions, _AutoGenFlag}, Result) ->
     lists:reverse(Result);
-state_machine_states({[{N, State, StateType}|States], Transitions, AutoGenFlag}, Result) ->
+state_machine_states({[{_N, State, StateType}|States], Transitions, AutoGenFlag}, Result) ->
     state_machine_states({States, Transitions, AutoGenFlag}, [{State, StateType}|Result]);
-state_machine_states({[{N, State}|States], Transitions, AutoGenFlag}, Result) ->
+state_machine_states({[{_N, State}|States], Transitions, AutoGenFlag}, Result) ->
     state_machine_states({States, Transitions, AutoGenFlag}, [State|Result]).
 
 %% state_machine_transitions
-state_machine_transitions({States, [], AutoGenFlag}, Result) ->
+state_machine_transitions({_States, [], _AutoGenFlag}, Result) ->
     lists:reverse(Result);
-state_machine_transitions({States, [{FromN, Transition, ToN}|Transitions], AutoGenFlag}, Result) ->
+state_machine_transitions({States, [{_FromN, Transition, _ToN}|Transitions], AutoGenFlag}, Result) ->
     state_machine_transitions({States, Transitions, AutoGenFlag}, [Transition|Result]);
 
 state_machine_transitions([], Result) ->
@@ -232,17 +241,17 @@ state_machine_transitions([SM|StateMachines], Result) ->
     state_machine_transitions(StateMachines, [state_machine_transitions(SM, [])|Result]).
 
 %% check that the state machine is deterministic
-start_member({NFrom, TValue}, []) ->
+start_member({_NFrom, _TValue}, []) ->
     true;
-start_member({NFrom, TValue}, [{NFrom, TValue, NTo0}|Transitions]) ->
+start_member({NFrom, TValue}, [{NFrom, TValue, _NTo0}|_Transitions]) ->
     false;
-start_member({NFrom, TValue}, [{NFrom0, TValue0, NTo0}|Transitions]) ->
+start_member({NFrom, TValue}, [{_NFrom0, _TValue0, _NTo0}|Transitions]) ->
     start_member({NFrom, TValue}, Transitions).
 
 is_deterministic(Transitions) ->
     lists:foldl(
-      fun (Transition, Rest) ->
-	      {NFrom, TValue, NTo} = Transition,
+      fun (Transition, _Rest) ->
+	      {NFrom, TValue, _NTo} = Transition,
 	      start_member({NFrom, TValue}, lists:delete(Transition, Transitions))
       end, true, Transitions
      ).
@@ -256,14 +265,14 @@ clean_states([{N, State}|States], Result) when is_atom(State) ->
     clean_states(States, [{N, State}|Result]);
 clean_states([{N, undefined}|States], Result) ->
     clean_states(States, [{N, no_state}|Result]);
-clean_states([{N, Other}|States], Result) ->
+clean_states([{_N, _Other}|_States], _Result) ->
     {error, invalid_state}.
 
 %%
 pretty_state(0) -> "start";
 pretty_state(N) -> "state_" ++ lists:flatten(io_lib:fwrite("~p", [N])).
 
-generate_numbered_states(N, [], NumberedStates) ->
+generate_numbered_states(_N, [], NumberedStates) ->
     lists:reverse(NumberedStates);
 generate_numbered_states(N, [{Transition, _NoState}|States], NumberedStates) ->
     generate_numbered_states(N+1, States, [{Transition, pretty_state(N)}|NumberedStates]).
@@ -283,7 +292,7 @@ remove_timestamps(FSMs) ->
 %% from previous-state -> transition -> next-state
 label_previous([], _PreviousState, Result) ->
     lists:reverse(Result);
-label_previous([{Transition, NextState}|FSM], no_state, Result) ->
+label_previous([{_Transition, NextState}|FSM], no_state, Result) ->
     label_previous(FSM, NextState, Result);
 label_previous([{Transition, NextState}|FSM], PreviousState, Result) ->
     label_previous(FSM, NextState, [{PreviousState, Transition, NextState}|Result]).
@@ -294,13 +303,13 @@ to_node(P)       -> {P, []}.
 combine_node(Node, FSM) ->
     combine_node_(Node, FSM, []). 
 
-combine_node_({PX, _L0}, [], R) ->
+combine_node_({_PX, _L0}, [], R) ->
     R;
 combine_node_({PX, L0}, [{PX, T1, N1}|FSM], []) ->
     combine_node_({PX, L0}, FSM, {PX, [{T1,N1}]});
 combine_node_({PX, L0}, [{PX, T1, N1}|FSM], {PX, LR}) ->
     combine_node_({PX, L0}, FSM, {PX, [{T1,N1}|LR]});
-combine_node_({P0, L0}, [{P1, T1, _N1}|FSM], Result) ->
+combine_node_({P0, L0}, [{_P1, _T1, _N1}|FSM], Result) ->
     combine_node_({P0, L0}, FSM, Result).
 
 combine_nodes(Nodes, FSM) ->
@@ -340,14 +349,14 @@ labelled_fsms_to_nodes(LabelledFSMs) ->
 
 existing_states([], Result) ->
     lists:reverse(Result);
-existing_states([{S,StateList}|Nodes], Result) ->
+existing_states([{S,_StateList}|Nodes], Result) ->
     existing_states(Nodes, [S|Result]).
 
 exists(_, []) ->
     false;
-exists(S, [S|ExistingStates]) ->
+exists(S, [S|_ExistingStates]) ->
     true;
-exists(S, [State|ExistingStates]) ->
+exists(S, [_State|ExistingStates]) ->
     exists(S, ExistingStates).
 
 find_missing_states([], _ExistingStates, Result) ->
@@ -417,12 +426,7 @@ write_state(IoDevice, {Type, N, Label}) ->
 		      "label=\"~s\"];\n", [N, "circle", "#eeaaaa", Label])
     end.
 
-write_transition(IoDevice, {FromN, ToN, Label}) ->
-    io:fwrite(IoDevice, "st~p -> st~p [fontsize=10,label=\"~s\"];\n",
-	      [FromN, ToN, Label]).
-
-write_states(IoDevice, []) ->
-    ok;
+write_states(_IoDevice, []) -> ok;
 write_states(IoDevice, [{N, undefined}|States]) ->
     StateLabel = io_lib:fwrite("State ~p", [N]),
     write_state(IoDevice, {normal, N, StateLabel}),
@@ -432,33 +436,34 @@ write_states(IoDevice, [{N, StateLabel}|States]) ->
     write_states(IoDevice, States);
 write_states(IoDevice, [{N, StateLabel, StateType}|States]) ->
     write_state(IoDevice, {StateType, N, StateLabel}),
-    write_states(IoDevice, States);
-write_states(IoDevice, [{N, {StateType, StateLabel}}|States]) ->
-    write_state(IoDevice, {normal, N, StateLabel}),
     write_states(IoDevice, States).
 
-write_states(IoDevice, [], N) -> ok;
-write_states(IoDevice, [{Transition, undefined}|Data], N) ->
+write_states(_IoDevice, [], _N) -> ok;
+write_states(IoDevice, [{_Transition, undefined}|Data], N) ->
     [H|_] = io_lib:fwrite("~p", [N]),
     io:format("Writing state: " ++ H, []),
     write_state(IoDevice, {normal, N, "State " ++ H}),
     write_states(IoDevice, Data, N+1);
-write_states(IoDevice, [{Transition, {StateType, StateLabel}}|Data], N) -> 
+write_states(IoDevice, [{_Transition, {_StateType, StateLabel}}|Data], N) -> 
+    io:format("Writing state: ~p\n", [StateLabel]),
     write_state(IoDevice, {normal, N, StateLabel}),
     write_states(IoDevice, Data, N+1).
 
-write_transitions(IoDevice, []) ->
-    ok;
-write_transitions(IoDevice, [{FromN, {TransitionType, TransitionLabel}, ToN}|Transitions]) ->
-    write_transition(IoDevice, {FromN, ToN, TransitionLabel}),
+write_transition(IoDevice, {FromN, ToN, Label}) when is_list(Label) ->
+    io:fwrite(IoDevice, "st~p -> st~p [fontsize=10,label=\"~s\"];\n",
+	      [FromN, ToN, Label]).
+
+write_transitions(_IoDevice, []) -> ok;
+write_transitions(IoDevice, [{FromN, Transition, ToN}|Transitions]) when is_list(Transition) -> 
+    write_transition(IoDevice, {FromN, ToN, Transition}),
     write_transitions(IoDevice, Transitions).
 
-write_transitions(IoDevice, [], FromN, ToN) -> ok;
-write_transitions(IoDevice, [{{TransitionType, TransitionLabel}, State}|Data], FromN, ToN) ->
-    write_transition(IoDevice, {FromN, ToN, TransitionLabel}),
-    write_transitions(IoDevice, Data, FromN+1, ToN+1).
+write_transitions(_IoDevice, [], _FromN, _ToN) -> ok;
+write_transitions(IoDevice, [{Transition, _State}|FSM], FromN, ToN) when is_list(Transition) -> 
+    write_transition(IoDevice, {FromN, ToN, Transition}),
+    write_transitions(IoDevice, FSM, FromN+1, ToN+1).
 
-write_state_machine(IoDevice, Key, FlatInstance) ->
+write_state_machine(IoDevice, _Key, FlatInstance) ->
     io:fwrite(IoDevice, "digraph G {\n", []),
     io:fwrite(IoDevice, "#size=\"6,6\"\n", []),
     write_states(IoDevice, FlatInstance, 0),
@@ -475,15 +480,14 @@ generate_flat_visualization(Path, Key, FlatInstance) ->
 	    Error
     end.
 
-write_state_and_transitions(IoDevice, []) ->
-    ok;
-write_state_and_transitions(IoDevice, [{N, State, StateTransitions}|Tuples]) ->
+write_state_and_transitions(_IoDevice, []) -> ok;
+write_state_and_transitions(IoDevice, [{N, State, _StateTransitions}|Tuples]) ->
     write_state(IoDevice, {normal, N, State}),
     write_state_and_transitions(IoDevice, Tuples).
 
-write_fsm(IoDevice, Key, {States, Transitions, AutoGenFlag}) ->
+write_fsm(IoDevice, Key, {States, Transitions, _AutoGenFlag}) ->
     write_fsm(IoDevice, Key, {States, Transitions});
-write_fsm(IoDevice, Key, {States, Transitions}) ->
+write_fsm(IoDevice, _Key, {States, Transitions}) ->
     io:fwrite(IoDevice, "digraph G {\n", []),
     io:fwrite(IoDevice, "#size=\"6,6\"\n", []),
     write_states(IoDevice, States),
