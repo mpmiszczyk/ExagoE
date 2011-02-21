@@ -46,15 +46,12 @@ row_format() ->
      exa_field:timestamp("timestamp", partial, timestamp_format()),
      exa_field:transition("action", atom)].
 
-init_state_es() -> 
-    {"init_state", [{csv, absolute, "/Users/etate/ExagoE/src/examples/ttb_example/init_state.log"}], row_format()}.
-process1_es() -> 
-    {"process1", [{csv, absolute, "/Users/etate/ExagoE/src/examples/ttb_example/process1.log"}], row_format()}.
-process2_es() -> 
-    {"process2", [{csv, absolute, "/Users/etate/ExagoE/src/examples/ttb_example/process2.log"}], row_format()}.
+init_state() -> {"init_state", [{csv, absolute, "./init_state.log"}], row_format()}.
+process1() ->   {"process1", [{csv, absolute, "./process1.log"}], row_format()}.
+process2() ->   {"process2", [{csv, absolute, "./process2.log"}], row_format()}.
 
-combined_es() ->
-    {"combined", exa_es:collect([init_state_es(), process1_es(), process2_es()], append, source_state)}.
+combined() ->
+    {"combined", exa_es:collect([init_state(), process1(), process2()], append, source_state)}.
 
 generate_model() ->
-    exa_sm:generate_visualizations([exa_sm:generate_state_machine(combined_es(), [])], 0).
+    exa_sm:generate_visualizations([exa_sm:generate_state_machine(combined(), [])], 0).

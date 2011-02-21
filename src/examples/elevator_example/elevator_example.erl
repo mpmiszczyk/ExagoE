@@ -35,7 +35,6 @@
 -module(elevator_example).
 
 -export([combined_event_source/0, generate_model/0]).
-
 -export([transition_modifier/2, transition_filter/1]).
 
 timestamp_format() ->
@@ -65,7 +64,7 @@ transition_filter({ResultType, Event, FormatResult}) ->
 	{string, "close"       ++ _} -> true;
 	{string, "approaching" ++ _} -> true;
 	{string, "stopped_at"  ++ _} -> true;
-	Other              -> false
+	Other                        -> false
     end.    
 
 row_format() ->
@@ -76,7 +75,7 @@ row_format() ->
      exa_field:annotation("floor1", string),
      exa_field:annotation("floor2", string)].
 
-include_files() -> [{csv, absolute, "/Users/etate/project/ExagoE/elevator.log"}].
+include_files() -> [{csv, absolute, "./elevator.log"}].
 
 event_source() -> {"elevator_log", include_files(), row_format()}.
 
@@ -88,7 +87,5 @@ combined_event_source() ->
 generate_model() ->
     exa_sm:generate_state_machine(combined_event_source(), [{gen_state, true}, {uniques, true}]).
 
-
-%%generate_state_machine() ->
     
 
