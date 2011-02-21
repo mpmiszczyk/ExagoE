@@ -34,7 +34,7 @@
 %%%-------------------------------------------------------------------
 -module(elevator_example).
 
--export([combined_event_source/0, generate_model/0]).
+-export([combined/0, generate_model/0]).
 -export([transition_modifier/2, transition_filter/1]).
 
 timestamp_format() ->
@@ -42,29 +42,31 @@ timestamp_format() ->
      time_hour, time_minute, time_second,
      time_secfrac].
 
-transition_modifier({FieldType, FieldIdentifier, {field_value, FieldValue}}, Fields) ->
+transition_modifier({transition, FieldIdentifier, {field_value, FieldValue}}, Fields) when is_list(FieldValue) ->
     case FieldValue of
-	{string, "reset"}       ->
-	    {string, FloorN} = exa_es_util:extract_field_value_by_id("floor2", Fields),
-	    {FieldType, FieldIdentifier, {field_value, {string, "reset_to_" ++ FloorN}}};
-	{string, "approaching"} ->
-	    {string, FloorN} = exa_es_util:extract_field_value_by_id("floor1", Fields),
-	    {FieldType, FieldIdentifier, {field_value, {string, "approaching_" ++ FloorN}}};
-	{string, "stopped_at"}  ->
-	    {string, FloorN} = exa_es_util:extract_field_value_by_id("floor1", Fields),
-	    {FieldType, FieldIdentifier, {field_value, {string, "stopped_at_" ++ FloorN}}};
+	"reset"       ->
+	    FloorN = exa_es_util:extract_field_value_by_id("floor2", Fields),
+	    {transition, FieldIdentifier, {field_value, "reset_to_" ++ FloorN}};
+	"approaching" ->
+	    FloorN = exa_es_util:extract_field_value_by_id("floor1", Fields),
+	    {transition, FieldIdentifier, {field_value, "approaching_" ++ FloorN}};
+	"stopped_at"  ->
+	    FloorN = exa_es_util:extract_field_value_by_id("floor1", Fields),
+	    {transition, FieldIdentifier, {field_value, "stopped_at_" ++ FloorN}};
 	_             ->
-	    {FieldType, FieldIdentifier, {field_value, FieldValue}}
-    end.
+	    {transition, FieldIdentifier, {field_value, FieldValue}}
+    end;
+transition_modifier(Field, _Fields) ->
+    Field.
 
-transition_filter({ResultType, Event, FormatResult}) ->
+transition_filter({_ResultType, Event, _FormatResult}) ->
     case exa_es_util:extract_field_value_by_id("elevator_control", Event) of
-	{string, "reset"       ++ _} -> true;
-	{string, "open"        ++ _} -> true;
-	{string, "close"       ++ _} -> true;
-	{string, "approaching" ++ _} -> true;
-	{string, "stopped_at"  ++ _} -> true;
-	Other                        -> false
+	"reset"       ++ _ -> true;
+	"open"        ++ _ -> true;
+	"close"       ++ _ -> true;
+	"approaching" ++ _ -> true;
+	"stopped_at"  ++ _ -> true;
+	_Other             -> false
     end.    
 
 row_format() ->
@@ -75,17 +77,15 @@ row_format() ->
      exa_field:annotation("floor1", string),
      exa_field:annotation("floor2", string)].
 
-include_files() -> [{csv, absolute, "log_files/elevator.log"}].
+event_source() -> {"elevator_log", [{csv, absolute, "log_files/elevator.log"}], row_format()}.
 
-event_source() -> {"elevator_log", include_files(), row_format()}.
-
-combined_event_source() ->
-    {"elevator_log", exa_es:collect([event_source()], absorb, implicit_state, 
-				    [{result_filter, {exa_elevator, transition_filter}},
-				     {event_modifier, {exa_elevator, transition_modifier}}])}.
+combined() ->
+    {"combined", exa_es:collect([event_source()], absorb, implicit_state, 
+				[{result_filter, {elevator_example, transition_filter}},
+				 {event_modifier, {elevator_example, transition_modifier}}])}.
 
 generate_model() ->
-    exa_sm:generate_state_machine(combined_event_source(), [{gen_state, true}, {uniques, true}]).
+    exa_sm:generate_state_machine(combined(), [{gen_state, true}, {uniques, true}]).
 
     
 
