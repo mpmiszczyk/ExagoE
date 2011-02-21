@@ -36,7 +36,9 @@
 
 -export([with_file/3, drop_last/1, collect_file_by_line/2]).
 
-%%
+%% @doc utility to cleanly collect files
+-spec(with_file (Path::string(), Collector::tuple(), Modifier::tuple())
+      -> CollectedResults::list()).	     
 with_file(Path, {Module1, Collect}, {Module2, Function}) ->
     case file:open(Path, [read]) of
 	{ok, IoDevice} ->
@@ -47,7 +49,9 @@ with_file(Path, {Module1, Collect}, {Module2, Function}) ->
 	    {file_error, Error}
     end.
 
-%%
+%% @doc Drop the last element in a list
+-spec(drop_last (List::list())
+      -> ListButLast::list()).
 drop_last(L) ->
     drop_last(L, []).
 
@@ -58,14 +62,14 @@ drop_last([E|[]], R) ->
 drop_last([E|Elts], R) ->
     drop_last(Elts, [E|R]).
 
-%%
+%% @doc Collect a file by line
 collect_file_by_line(IoDevice, {Module, Function}) ->
-    collect_file_by_line_(IoDevice, {Module, Function}, start, []).
+    collect_file_by_line(IoDevice, {Module, Function}, start, []).
 
-collect_file_by_line_(IoDevice, {Module, Function}, start, Result) ->
-    collect_file_by_line_(IoDevice, {Module, Function}, file:read_line(IoDevice), Result);
-collect_file_by_line_(IoDevice, {_Module, _Function}, eof, Result)   -> 
+collect_file_by_line(IoDevice, {Module, Function}, start, Result) ->
+    collect_file_by_line(IoDevice, {Module, Function}, file:read_line(IoDevice), Result);
+collect_file_by_line(_IoDevice, {_Module, _Function}, eof, Result)   -> 
     lists:reverse(Result);
-collect_file_by_line_(IoDevice, {Module, Function}, {ok, Line}, Result) ->
-    collect_file_by_line_(IoDevice, {Module, Function}, file:read_line(IoDevice), [drop_last(Module:Function(Line))|Result]).
+collect_file_by_line(IoDevice, {Module, Function}, {ok, Line}, Result) ->
+    collect_file_by_line(IoDevice, {Module, Function}, file:read_line(IoDevice), [drop_last(Module:Function(Line))|Result]).
 

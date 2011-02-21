@@ -53,18 +53,15 @@ parse_foreign_key(FieldString, PrimitiveType, EventSource, FieldKey, FieldList) 
 	    {foreign_reference, {EventSource, FieldValue,  FieldKey, FieldList}}
     end.
 
-parse_identity(String) -> 
-    {string, String}.
-parse_atom(String) ->
-    {atom, list_to_atom(String)}.
-parse_integer(String) ->
+parse_identity(String) -> String.
+parse_atom(String)     -> list_to_atom(String).
+parse_integer(String)  ->
     case string:to_integer(String) of
-	{Integer, []}       -> {integer, Integer};
+	{Integer, []}       -> Integer;
 	{error, no_integer} -> {parse_error, not_an_integer};
 	{Integer, _}        -> {partial_integer, Integer}
     end.
-parse_string(String) ->
-    {string, String}.
+parse_string(String)   -> String.
 
 parse_timestamp(FieldString, rfc3339) ->
     exa_rfc3339_ts:parse(FieldString);

@@ -177,7 +177,7 @@ generate_state_machine(EventSource, Opt) ->
 	    CombinedFSMs = 
 		lists:map(fun (UniqueFSM) ->
 				  lists:map(fun to_node/1, 
-					    extract_missing_states(UniqueFSM, existing_states(UniqueFSM, []), []))
+					    [extract_missing_states(UniqueFSM, existing_states(UniqueFSM, []), [])])
 				      ++ UniqueFSM
 			  end, Uniques),
 	    NumberedStates = 
@@ -203,7 +203,7 @@ generate_state_machine(EventSource, Opt) ->
 	false ->
 	    Nodes   = labelled_fsms_to_nodes(LabelledFSMs),
 	    Uniques = collect_uniques(combine(Nodes, LabelledFSMs), []),
-	    CombinedFSM  = lists:map(fun to_node/1, extract_missing_states(Uniques, existing_states(Uniques, []), []))
+	    CombinedFSM  = lists:map(fun to_node/1, [extract_missing_states(Uniques, existing_states(Uniques, []), [])])
 		++ Uniques,
 	    NumberedStates      = extract_numbered_states(0, CombinedFSM, []),
 	    NumberedFSM         = number_fsm(CombinedFSM, NumberedStates, []),
@@ -250,9 +250,9 @@ is_deterministic(Transitions) ->
 %% 
 clean_states([], Result) ->
     lists:reverse(Result);
-clean_states([{N, {string, State}}|States], Result) ->
+clean_states([{N, State}|States], Result) when is_list(State) ->
     clean_states(States, [{N, list_to_atom(State)}|Result]);
-clean_states([{N, {atom, State}}|States], Result) ->
+clean_states([{N, State}|States], Result) when is_atom(State) ->
     clean_states(States, [{N, State}|Result]);
 clean_states([{N, undefined}|States], Result) ->
     clean_states(States, [{N, no_state}|Result]);
@@ -266,7 +266,7 @@ pretty_state(N) -> "state_" ++ lists:flatten(io_lib:fwrite("~p", [N])).
 generate_numbered_states(N, [], NumberedStates) ->
     lists:reverse(NumberedStates);
 generate_numbered_states(N, [{Transition, _NoState}|States], NumberedStates) ->
-    generate_numbered_states(N+1, States, [{Transition, {string, pretty_state(N)}}|NumberedStates]).
+    generate_numbered_states(N+1, States, [{Transition, pretty_state(N)}|NumberedStates]).
 
 generate_states(SortedFSMs) ->
     lists:map(fun (FSM) -> 
@@ -333,7 +333,7 @@ sort_fsms(SortedEventSource) ->
     remove_timestamps(uorder_fsms(SortedEventSource)).
 
 label_previous_states(FSMs) ->
-    lists:map(fun (FSM) -> label_previous(FSM, {string, "init_state"}, []) end, FSMs).
+    lists:map(fun (FSM) -> label_previous(FSM, "init_state", []) end, FSMs).
 
 labelled_fsms_to_nodes(LabelledFSMs) ->
     lists:map(fun to_node/1, lists:usort(lists:flatten(LabelledFSMs))).
@@ -368,10 +368,10 @@ extract_numbered_states(_N, [], R) ->
 extract_numbered_states(N, [{A,_L}|Nodes], R) ->
     extract_numbered_states(N+1, Nodes, [{N,A}|R]).
 
-lookup_state_number({{T0,T1},S}, [{N, S}|_NumberedStates]) ->
-    {{T0,T1}, {N, S}};
-lookup_state_number({{T0,T1},S0}, [{_N, _S1}|NumberedStates]) ->
-    lookup_state_number({{T0,T1}, S0}, NumberedStates);
+lookup_state_number({T, S}, [{N, S}|_NumberedStates]) ->
+    {T, {N, S}};
+lookup_state_number({T, S0}, [{_N, _S1}|NumberedStates]) ->
+    lookup_state_number({T, S0}, NumberedStates);
 lookup_state_number(_S, [{N, _S}|_NumberedStates]) ->
     N;
 lookup_state_number(S0, [{_N, _S1}|NumberedStates]) ->
@@ -477,7 +477,7 @@ generate_flat_visualization(Path, Key, FlatInstance) ->
 
 write_state_and_transitions(IoDevice, []) ->
     ok;
-write_state_and_transitions(IoDevice, [{N, {string, State}, StateTransitions}|Tuples]) ->
+write_state_and_transitions(IoDevice, [{N, State, StateTransitions}|Tuples]) ->
     write_state(IoDevice, {normal, N, State}),
     write_state_and_transitions(IoDevice, Tuples).
 

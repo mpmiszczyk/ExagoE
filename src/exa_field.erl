@@ -43,6 +43,8 @@
 %% its identifier which may be viewed as a column in a larger event source, 
 %% and a function responsible for parsing its value into a known type, such as an
 %% integer, or a string.
+-spec(close_over (FieldType::string(), FieldIdentifier::term(), ParserSpec::tuple())
+      -> ParsedField::tuple()).	     
 close_over(Type, Identifier, {Module, Function, Arguments}) ->
     fun (FieldString) ->
 	    {Type, 
@@ -50,15 +52,19 @@ close_over(Type, Identifier, {Module, Function, Arguments}) ->
 	     {field_value, apply({Module, Function}, [FieldString] ++ Arguments)}}
     end.
 
+%% @doc An annotation parser
 annotation(Identifier, PrimitiveType) -> 
     close_over(annotation, Identifier, {exa_field_parser, parse_field_type, [PrimitiveType]}).
 
+%% @doc An instance key parser
 instance_key(Identifier, PrimitiveType) ->
     close_over(instance_key, Identifier, {exa_field_parser, parse_field_type, [PrimitiveType]}).
 
+%% @doc A foreign key parser
 foreign_key(Identifier, PrimitiveType, EventSource, FieldKey, FieldList) ->
     close_over(foreign_key, Identifier, {exa_field_parser, parse_foreign_key, [PrimitiveType, EventSource, FieldKey, FieldList]}).
 
+%% @doc A timestamp parser
 timestamp(Identifier, Format) ->
     close_over(timestamp, Identifier, {exa_field_parser, parse_timestamp, [Format]}).
 

@@ -34,11 +34,29 @@
 %%%-------------------------------------------------------------------
 -module(exa_csv).
 
--export([parse/1, parse_csv_line/1]).
+-export([parse/1, parse_wildcard/1]).
+-export([parse_csv_line/1]).
 
+%% @doc Parse a csv file to a list of rows
+-spec(parse (Path::string()) 
+      -> CSVLines::list()).
 parse(Path) -> 
-    exa_util:with_file(Path, {exa_util, collect_file_by_line}, {exa_csv, parse_csv_line}).
+    exa_util:with_file(Path, 
+		       {exa_util, collect_file_by_line}, 
+		       {exa_csv, parse_csv_line}).
 
+%% @doc Parses a set of csv files to a list of rows
+-spec(parse_wildcard (WildCard::string())
+      -> CSVLines::list()).
+parse_wildcard(WildCard) ->
+    lists:foldl(fun (FileRows, Rest) ->
+			FileRows ++ Rest
+		end, [],
+		[parse(File) ||  File <- filelib:wildcard(WildCard)]).
+
+%% @doc Parses a csv line as a list of fields
+-spec(parse_csv_line (Line::list())
+      -> Fields::list()).	     
 parse_csv_line(Line) ->
     re:split(Line, "[,\n]", [{return, list}]).
 

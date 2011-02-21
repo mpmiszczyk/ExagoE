@@ -35,7 +35,6 @@
 -module(elevator_example).
 
 -export([combined_event_source/0, generate_model/0]).
-
 -export([transition_modifier/2, transition_filter/1]).
 
 timestamp_format() ->
@@ -76,7 +75,7 @@ row_format() ->
      exa_field:annotation("floor1", string),
      exa_field:annotation("floor2", string)].
 
-include_files() -> [{csv, absolute, "/Users/etate/project/ExagoE/elevator.log"}].
+include_files() -> [{csv, absolute, "log_files/elevator.log"}].
 
 event_source() -> {"elevator_log", include_files(), row_format()}.
 

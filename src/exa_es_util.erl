@@ -73,11 +73,11 @@ find_field_by_identifier_and_value(Identifier, Value, [{FieldName,
     end.
 
 %%
-extract_field_value_by_type(FieldType, []) ->
+extract_field_value_by_type(_FieldType, []) ->
     undefined;
 extract_field_value_by_type(FieldType, [Field|Fields]) ->
     case Field of
-	{FType, FieldIdentifier, {field_value, FieldValue}} ->
+	{FType, _FieldIdentifier, {field_value, FieldValue}} ->
 	    case FieldType =:= FType of
 		true  -> FieldValue;
 		false -> extract_field_value_by_type(FieldType, Fields)
@@ -87,11 +87,11 @@ extract_field_value_by_type(FieldType, [Field|Fields]) ->
     end.
 
 %%
-extract_field_value_by_id(Identifier, []) ->
+extract_field_value_by_id(_Identifier, []) ->
     undefined;
 extract_field_value_by_id(Identifier, [Field|Fields]) ->
     case Field of
-	{FieldType, {field_identifier, FieldIdentifier}, {field_value, FieldValue}} ->
+	{_FieldType, {field_identifier, FieldIdentifier}, {field_value, FieldValue}} ->
 	    case Identifier =:= FieldIdentifier of
 		true  -> FieldValue;
 		false -> extract_field_value_by_id(Identifier, Fields)

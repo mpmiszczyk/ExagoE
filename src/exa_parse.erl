@@ -36,5 +36,11 @@
 
 -export([parse/1]).
 
+%% @doc Generic file parser, this is here in case other file formats are
+%% to be supported in the future.
+-spec(parse (FileSpec::tuple())
+      -> Rows::list()).	     
 parse({csv, absolute, Path}) ->
-    exa_csv:parse(Path).
+    exa_csv:parse(Path);
+parse({csv, wildcard, WildCard}) ->
+    exa_csv:parse_wildcard(WildCard).

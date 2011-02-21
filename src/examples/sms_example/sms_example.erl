@@ -34,7 +34,7 @@
 %%%-------------------------------------------------------------------
 -module(sms_example).
 
--export([collect_event_source/0, generate_model/0]).
+-export([event_source/0, generate_model/0]).
 -export([timestamp_format/0]).
 
 timestamp_format() ->
@@ -72,16 +72,11 @@ req_sms_row_format() ->
      exa_field:annotation("ack_sms_key", integer),
      exa_field:annotation("unknown_req_sms", integer)].
 
-include_ack_sms_files() -> 
-    [{csv, absolute, "/Users/etate/ExagoE/src/examples/sms_example/log_files/etc_ex_AckSMS.log"}].
-include_req_ack_files() -> 
-    [{csv, absolute, "/Users/etate/ExagoE/src/examples/sms_example/log_files/etc_ex_ReqAck.log"}].
-include_req_err_files() -> 
-    [{csv, absolute, "/Users/etate/ExagoE/src/examples/sms_example/log_files/etc_ex_ReqErr.log"}].
-include_req_files() -> 
-    [{csv, absolute, "/Users/etate/ExagoE/src/examples/sms_example/log_files/etc_ex_Req.log"}].
-include_req_sms_files() -> 
-    [{csv, absolute, "/Users/etate/ExagoE/src/examples/sms_example/log_files/etc_ex_ReqSMS.log"}].
+include_ack_sms_files() -> [{csv, absolute, "./log_files/etc_ex_AckSMS.log"}].
+include_req_ack_files() -> [{csv, absolute, "./log_files/etc_ex_ReqAck.log"}].
+include_req_err_files() -> [{csv, absolute, "./log_files/etc_ex_ReqErr.log"}].
+include_req_files() ->     [{csv, absolute, "./log_files/etc_ex_Req.log"}].
+include_req_sms_files() -> [{csv, absolute, "./log_files/etc_ex_ReqSMS.log"}].
 
 ack_sms_es() -> 
     {"ack_sms_es", include_ack_sms_files(), ack_sms_row_format()}.
@@ -94,9 +89,9 @@ req_es() ->
 req_sms_es() -> 
     {"req_sms_es", include_req_sms_files(), req_sms_row_format()}.
 
-collect_event_source() ->
+event_source() ->
     {"combined_es", 
      exa_es:collect([ack_sms_es(), req_ack_es(), req_err_es(), req_es(), req_sms_es()], append, source_state)}.
 
 generate_model() ->
-    exa_sm:generate_visualizations([exa_sm:generate_state_machine(collect_event_source(), [])],0).
+    exa_sm:generate_state_machine(event_source(), [{uniques, true}]).
