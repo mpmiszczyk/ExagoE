@@ -36,10 +36,10 @@
 
 -compile(export_all).
 
--export([init_state/3, process1/1, process2/1]).
+-export([init_state/4, process1/1, process2/1]).
 -export([start/0]).
 
-init_state(N, {SPid1, S}, SPid2) ->
+init_state(N, {SPid1, S}, SPid2, SPid3) ->
     case S of
 	true  ->
 	    SPid1 ! {N, init_state, self(), ping, time_now()};
@@ -49,7 +49,10 @@ init_state(N, {SPid1, S}, SPid2) ->
     receive
 	{N, _, _, pong, _} ->
 	    SPid2 ! {N, init_state, self(), pang, time_now()},
-	    init_state(N, {SPid1, false}, SPid2)
+	    SPid3 ! {N, init_state, self(), peng, time_now()},
+	    init_state(N, {SPid1, false}, SPid2, SPid3);
+	{N, _, _, quit, _} ->
+	    ok
     end.
 
 process1(N) ->
@@ -64,6 +67,13 @@ process2(N) ->
 	    ok
     end.
 
+process3(N) ->
+    receive
+	{N, _, Pid, peng, _} ->
+	    Pid ! {N, process3, self(), quit, time_now()},
+	    ok
+    end.
+
 default_match_spec() ->
     [{'_', [], [{return_trace}, {set_seq_token, timestamp, true}]}].
 
@@ -72,9 +82,14 @@ enable_tracing() ->
 			 {fun (_Fd, Trace, _TraceInfo, _State) ->
 				  case Trace of
 				      {trace_ts, {_Pid1, {_M, P1, _A}, _N}, 'receive', 
-				       {N, _P2, _Pid2, Message, _Ts2}, Ts1} ->
-					  write_line("/Users/etate/ExagoE/src/examples/ttb_example/", N, P1, time_now(Ts1),
-						     atom_to_list(Message));
+				       {N, P2, _Pid2, Message, Ts2}, Ts1} ->
+					  UniqueId = exa_count:unique_id(),
+					  write_send("/Users/etate/ExagoE/src/examples/ttb_example/log_files/",
+						     N, atom_to_list(P1) ++ "_receive", time_now(Ts1), atom_to_list(Message), 
+						     integer_to_list(UniqueId)), 
+					  write_receive("/Users/etate/ExagoE/src/examples/ttb_example/log_files/",
+						     N, atom_to_list(P2) ++ "_send", Ts2, atom_to_list(Message), 
+							integer_to_list(UniqueId));
 				      end_of_trace ->
 					  ok;
 				      _ ->
@@ -101,9 +116,16 @@ format_timestamp(TimeNow) ->
 format_pid(Pid) ->
     pid_to_list(Pid).
 
-write_line(BasePath, N, Filename, Timestamp, Transition) ->
-    {ok, IoDevice} = file:open(BasePath ++ atom_to_list(Filename) ++ ".log", [append]),
-    file:write(IoDevice, integer_to_list(N) ++ "," ++ format_timestamp(Timestamp) ++ "," ++ Transition ++ "\n"),
+write_send(BasePath, SessionN, Filename, Timestamp, Transition, TransactionId) ->
+    {ok, IoDevice} = file:open(BasePath ++ Filename ++ ".log", [append]),
+    file:write(IoDevice, integer_to_list(SessionN) ++ ",send," ++ format_timestamp(Timestamp) ++ "," 
+	       ++ Transition ++ "," ++ TransactionId ++ "\n"),
+    file:close(IoDevice).
+
+write_receive(BasePath, N, Filename, Timestamp, Transition, TransactionId) ->
+    {ok, IoDevice} = file:open(BasePath ++ Filename ++ ".log", [append]),
+    file:write(IoDevice, integer_to_list(N) ++ ",receive," ++ format_timestamp(Timestamp) ++ "," 
+	       ++ Transition ++ "," ++ TransactionId ++ "\n"),
     file:close(IoDevice).
 
 start() ->
@@ -116,7 +138,8 @@ start() ->
     lists:map(fun (N) ->
 		      ttb:p(Pid1 = spawn(process_driven, process1, [N]), ['receive',timestamp]),
 		      ttb:p(Pid2 = spawn(process_driven, process2, [N]), ['receive',timestamp]),
-		      ttb:p(spawn(process_driven, init_state, [N, {Pid1, true}, Pid2]), ['receive',timestamp])
+		      ttb:p(Pid3 = spawn(process_driven, process3, [N]), ['receive',timestamp]),
+		      ttb:p(spawn(process_driven, init_state, [N, {Pid1, true}, Pid2, Pid3]), ['receive',timestamp])
 	      end, [1,2,3,4,5]),
 		      
     disable_tracing().

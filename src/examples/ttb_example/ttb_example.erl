@@ -35,23 +35,42 @@
 -module(ttb_example).
 
 -export([generate_model/0]).
+-export([event_source/0]).
 
 timestamp_format() ->
     [date_fullyear, date_month, date_mday,
      time_hour, time_minute, time_second,
      time_secfrac].
 
-row_format() ->
+field_format() ->
     [exa_field:instance_key("pid", string),
+     exa_field:transaction_type("transaction_type", atom),
      exa_field:timestamp("timestamp", partial, timestamp_format()),
-     exa_field:transition("action", atom)].
+     exa_field:transition("transition", atom),
+     exa_field:transaction_key("transaction_key", integer)].
 
-init_state() -> {"init_state", [{csv, absolute, "./init_state.log"}], row_format()}.
-process1() ->   {"process1", [{csv, absolute, "./process1.log"}], row_format()}.
-process2() ->   {"process2", [{csv, absolute, "./process2.log"}], row_format()}.
+init_state_send() ->    
+    {"init_state", [{csv, absolute, "./log_files/init_state_send.log"}], field_format()}.
+init_state_receive() -> 
+    {"init_state", [{csv, absolute, "./log_files/init_state_receive.log"}], field_format()}.
+process1_send() ->
+    {"process1", [{csv, absolute, "./log_files/process1_send.log"}], field_format()}.
+process1_receive() ->
+    {"process1", [{csv, absolute, "./log_files/process1_receive.log"}], field_format()}.
+process2_receive() ->
+    {"process2", [{csv, absolute, "./log_files/process2_receive.log"}], field_format()}.
+process3_send() ->
+    {"process3", [{csv, absolute, "./log_files/process3_send.log"}], field_format()}.
+process3_receive() ->
+    {"process3", [{csv, absolute, "./log_files/process3_receive.log"}], field_format()}.
 
-combined() ->
-    {"combined", exa_es:collect([init_state(), process1(), process2()], append, source_state)}.
+event_source() ->
+    {"event_source", exa_es:collect(
+			 [init_state_send(), init_state_receive(), 
+			  process1_send(), process1_receive(),
+			  process2_receive(),
+			  process3_send(), process3_receive()], 
+		       append, source_state)}.
 
 generate_model() ->
-    exa_sm:generate_visualizations([exa_sm:generate_state_machine(combined(), [])], 0).
+    exa_sm:generate_visualizations([exa_sm:generate_state_machine(event_source(), [])], 0).
