@@ -34,7 +34,7 @@
 %%%-------------------------------------------------------------------
 -module(sms_example).
 
--export([generate_uniques/0, generate_combined/0, generate_model/0]).
+-export([generate_uniques/0, generate_combined/0, generate_model/1]).
 
 timestamp_format() ->
     [date_fullyear, date_month, date_day,
@@ -86,6 +86,6 @@ generate_uniques() ->
 generate_combined() ->
     exa_sm:generate_state_machine(combined(), []).
 
-generate_model() ->
-    exa_sm:generate_visualizations([exa_sm:generate_state_machine(combined(), [])], 0).
+generate_model(Path) ->
+    exa_sm:generate_visualizations(Path, [exa_sm:generate_state_machine(combined(), [])], 0).
 

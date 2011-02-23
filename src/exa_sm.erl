@@ -36,7 +36,7 @@
 
 -export([strip_results/1, split_by_instance_key/3, unique_instance_keys/1]).
 -export([extract_states_and_transitions/1, extract_flat_states_and_transitions/1]).
--export([generate_visualizations/2]).
+-export([generate_visualizations/3]).
 
 -export([generate_state_machine/2]).
 
@@ -585,11 +585,11 @@ generate_fsm_visualization(Path, Key, IdealFSM) ->
 	    Error
     end.
     
-generate_visualizations([], _N) ->
+generate_visualizations(_Path, [], _N) ->
     ok;
-generate_visualizations([FlatInstance|FlatInstances], N) ->
-    generate_fsm_visualization("/Users/etate/sm/", N, FlatInstance),
+generate_visualizations(Path, [FlatInstance|FlatInstances], N) ->
+    generate_fsm_visualization(Path, N, FlatInstance),
     [H|_] = io_lib:fwrite("~p", [N]),
-    os:cmd("dot -T png " ++ "/Users/etate/sm/" ++ H ++ ".dot -o " ++ H ++ ".png"),
-    generate_visualizations(FlatInstances, N+1).
+    os:cmd("dot -T png " ++ Path ++ H ++ ".dot -o " ++ H ++ ".png"),
+    generate_visualizations(Path, FlatInstances, N+1).
 %% end visualize FSM    
