@@ -34,7 +34,7 @@
 %%%-------------------------------------------------------------------
 -module(sms_example).
 
--export([generate_model/0]).
+-export([generate_uniques/0, generate_combined/0, generate_model/0]).
 
 timestamp_format() ->
     [date_fullyear, date_month, date_day,
@@ -79,6 +79,12 @@ req_sms() -> {"req_sms_es", [{csv, absolute, "./log_files/etc_ex_ReqSMS.log"}], 
 
 combined() ->
     {"combined", exa_es:collect([ack_sms(), req_ack(), req_err(), req(), req_sms()], append, source_state)}.
+
+generate_uniques() ->
+    exa_sm:generate_state_machine(combined(), [{uniques, true}]).
+
+generate_combined() ->
+    exa_sm:generate_state_machine(combined(), []).
 
 generate_model() ->
     exa_sm:generate_visualizations([exa_sm:generate_state_machine(combined(), [])], 0).
