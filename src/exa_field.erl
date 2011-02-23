@@ -36,8 +36,8 @@
 %% This module defines the standard log format used in Exago
 -module(exa_field).
 
--export([annotation/2, instance_key/2, foreign_key/5]).
--export([timestamp/2, timestamp/3, transition/2, state/2]).
+-export([annotation/2, instance_key/2, transaction_key/2, transaction_type/2]).
+-export([foreign_key/5, timestamp/2, timestamp/3, transition/2, state/2]).
 
 %% @doc Closes over a field type by capturing its basic type, such as 'timestamp',
 %% its identifier which may be viewed as a column in a larger event source, 
@@ -60,6 +60,14 @@ annotation(Identifier, PrimitiveType) ->
 instance_key(Identifier, PrimitiveType) ->
     close_over(instance_key, Identifier, {exa_field_parser, parse_field_type, [PrimitiveType]}).
 
+%% @doc A receive_key parser
+transaction_type(Identifier, PrimitiveType) ->
+    close_over(transaction_type, Identifier, {exa_field_parser, parse_field_type, [PrimitiveType]}).
+
+%% @doc A transaction_key parser
+transaction_key(Identifier, PrimitiveType) ->
+    close_over(transaction_key, Identifier, {exa_field_parser, parse_field_type, [PrimitiveType]}).
+
 %% @doc A foreign key parser
 foreign_key(Identifier, PrimitiveType, EventSource, FieldKey, FieldList) ->
     close_over(foreign_key, Identifier, {exa_field_parser, parse_foreign_key, [PrimitiveType, EventSource, FieldKey, FieldList]}).
@@ -71,6 +79,7 @@ timestamp(Identifier, Format) ->
 timestamp(Identifier, Format, FormatString) ->
     close_over(timestamp, Identifier, {exa_field_parser, parse_timestamp, [Format, FormatString]}).
 
+%% @doc A transition parser
 transition(Identifier, PrimitiveType) ->
     close_over(transition, Identifier, {exa_field_parser, parse_field_type, [PrimitiveType]}).
 

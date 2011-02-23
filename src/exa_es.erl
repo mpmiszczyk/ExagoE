@@ -34,7 +34,7 @@
 %%%-------------------------------------------------------------------
 -module(exa_es).
 
--export([collect/3, collect/4, sort_events/1]).
+-export([collect/3, collect/4, combine/1, sort_events/1]).
 
 %% @doc Combines Event Sources based on the type of combination, which can be either 'absorb' or 
 %% 'append'. The difference between the two is that absorb is used where relational log data is 
@@ -51,6 +51,96 @@ sort_events(StrippedSources) ->
 		       TB = exa_es_util:extract_field_value_by_id(timestamp, B),
 		       TA > TB
 	       end, StrippedSources).
+
+%% combine
+extract_transaction(FieldSet) ->
+    extract_transaction(FieldSet, [], [], none).
+
+extract_transaction([], TransactionFields, KeptFields, {field_value, Key}) ->
+    {Key, lists:reverse(TransactionFields), lists:reverse(KeptFields)};
+extract_transaction([], TransactionFields, KeptFields, Key) ->
+    {Key, lists:reverse(TransactionFields), lists:reverse(KeptFields)};
+extract_transaction([{timestamp, TSId, TSValue}|FieldSet], TransactionFields, KeptFields, Key) ->
+    extract_transaction(FieldSet, [{timestamp, TSId, TSValue}|TransactionFields], KeptFields, Key);
+extract_transaction([{transaction_type, TTId, TTValue}|FieldSet], TransactionFields, KeptFields, Key) ->
+    extract_transaction(FieldSet, [{transaction_type, TTId, TTValue}|TransactionFields], KeptFields, Key);
+extract_transaction([{transaction_key, TKId, TKValue}|FieldSet], TransactionFields, KeptFields, _Key) ->
+    extract_transaction(FieldSet, [{transaction_key, TKId, TKValue}|TransactionFields], KeptFields, TKValue);
+extract_transaction([{transition, TId, TValue}|FieldSet], TransactionFields, KeptFields, Key) ->
+    extract_transaction(FieldSet, [{transition, TId, TValue}|TransactionFields], KeptFields, Key);
+extract_transaction([{state, SId, SValue}|FieldSet], TransactionFields, KeptFields, Key) ->
+    extract_transaction(FieldSet, [{state, SId, SValue}|TransactionFields], KeptFields, Key);
+extract_transaction([OtherField|FieldSet], TransactionFields, KeptFields, Key) ->
+    extract_transaction(FieldSet, TransactionFields, [OtherField|KeptFields], Key).
+
+extract_key_list([], KeyList) ->
+    lists:reverse(KeyList);
+extract_key_list([{Result, {Key, TransactionFields, Rest}, FormatResult}|Results], KeyList) ->
+    extract_key_list(Results, [Key|KeyList]).
+
+%% @doc extract_by_key
+extract_by_key(Key, Results) ->
+    extract_by_key(Key, Results, [], []).
+
+extract_by_key(Key, [], Transaction, KeptResults) ->
+    {lists:reverse(Transaction), lists:reverse(KeptResults)};
+extract_by_key(Key, [{ResultType, {Key, TransactionFields, Rest}, FormatResult}|Results], Transaction, KeptResults) ->
+    extract_by_key(Key, Results, [{ResultType, {Key, TransactionFields, Rest}, FormatResult}|Transaction], KeptResults);
+extract_by_key(Key, [{ResultType, {OtherKey, TransactionFields, Rest}, FormatResult}|Results], Transaction, KeptResults) ->
+    extract_by_key(Key, Results, Transaction, [{ResultType, {OtherKey, TransactionFields, Rest}, FormatResult}|KeptResults]).
+
+%% @doc combine_transaction
+combine_transaction([{ResultType0, {Key, Fields0, Rest0}, F0}, 
+		     {ResultType1, {Key, Fields1, Rest1}, F1}]) ->
+    {ResultType0, combine_transaction_fields(Fields0, Rest0, Fields1, Rest1), F0};
+combine_transaction([{ResultType0, {Key0, Fields0, Rest0}, F0},
+		     {ResultType1, {Key1, Fields1, Rest1}, F1}]) ->
+    {error, fatal_different_key};
+combine_transaction(L) ->
+    {error, combining_transaction}.
+
+%% @doc resolve_transaction (Fields0 is sender, Fields1 is receiver)
+resolve_transaction(Fields0, Rest0, Fields1, Rest1) ->
+    [proplists:lookup(timestamp, Fields0), proplists:lookup(transition, Fields0),
+     {state_from, proplists:lookup(state, Fields0)},
+     {state_to, proplists:lookup(state, Fields1)}
+    ] ++ Rest0.
+
+combine_transaction_fields(Fields0, Rest0, Fields1, Rest1) ->
+    TT0 = proplists:lookup(transaction_type, Fields0),
+    TT1 = proplists:lookup(transaction_type, Fields1),
+    case TT0 of
+	{transaction_type, _, {field_value, 'receive'}} ->
+	    case TT1 of
+		{transaction_type, _, {field_value, send}} ->
+		    resolve_transaction(Fields1, Rest1, Fields0, Rest0);
+		{transaction_type, _, {field_value, 'receive'}} ->
+		    {error, multiple_receives}
+	    end;
+	{transaction_type, _, {field_value, send}} ->
+	    case TT1 of
+		{transaction_type, _, {field_value, send}} ->
+		    {error, multiple_sends};
+		{transaction_type, _, {field_value, 'receive'}} ->
+		    resolve_transaction(Fields0, Rest0, Fields1, Rest1)
+	    end
+    end.
+
+%% @doc combine
+combine_by_key([], UnresolvedResults, CombinedResult) ->
+    lists:reverse(CombinedResult);
+combine_by_key([Key|Keys], Results, CombinedResult) ->
+    {Transaction, UnresolvedResults} = extract_by_key(Key, Results),
+    combine_by_key(Keys, UnresolvedResults, [combine_transaction(Transaction)|CombinedResult]).
+
+combine(Results) ->
+    combine(Results, []).
+
+combine([], CombinedResults) ->
+    R = lists:reverse(CombinedResults),
+    combine_by_key(extract_key_list(R, []), R, []);
+combine([{ResultType, FieldSet, FormatResult}|Results], Sources) ->
+    combine(Results, [{ResultType, extract_transaction(FieldSet), FormatResult}|Sources]).
 
 %%
 collect(EventSources, CombinationType, StateOption, Transmuters) ->

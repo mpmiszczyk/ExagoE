@@ -108,6 +108,16 @@ extract_flat_states_and_transitions(Instances) ->
 				  exa_es_util:extract_field_value_by_type(state, Event)}|Rest]
 			end, []).
 
+extract_resolved_states_and_transitions(Instances) ->
+    fold_flat_instances(Instances,
+			fun (Event, Rest) ->
+				{state, _, {field_value, Sender}}   = proplists:get_value(state_from, Event),
+				{state, _, {field_value, Receiver}} = proplists:get_value(state_to, Event),
+				Transition = exa_es_util:extract_field_value_by_type(transition, Event),
+				[{exa_es_util:extract_field_value_by_type(timestamp, Event),
+				  Sender, Transition, Receiver}|Rest]
+			end, []).
+
 extract_states_and_transitions(Instances) ->
     fold_instances(Instances,
 		   fun (Event, Rest) ->
@@ -176,39 +186,77 @@ generate_state_machine(EventSource, Opt) ->
     %%
     case proplists:get_value(uniques, Opt, false) of
 	true  ->
-	    Nodes    = lists:map(fun labelled_fsms_to_nodes/1, LabelledFSMs),
-	    UniqueTs = 
-		lists:map(fun (X) -> collect_uniques(X, []) end,
-			  map2(fun (Node, LabelledFSM) ->
-				       combine(Node, LabelledFSM)
-			       end, Nodes, LabelledFSMs, [])),
-	    Uniques  = ordsets:from_list(UniqueTs),
-	    CombinedFSMs = 
-		lists:map(fun (UniqueFSM) ->
-				  lists:map(fun to_node/1, 
-					    [extract_missing_states(UniqueFSM, existing_states(UniqueFSM, []), [])])
-				      ++ UniqueFSM
-			  end, Uniques),
-	    NumberedStates = 
-		lists:map(fun (CombinedFSM) ->
-				  extract_numbered_states(0, CombinedFSM, [])
-			  end, CombinedFSMs),
-	    NumberedFSMs = 
-		map2(fun (FSM, NStates) ->
-			     number_fsm(FSM, NStates, [])
-		     end, CombinedFSMs, NumberedStates, []),
-	    NumberedTransitions =
-		lists:map(fun (FSM) ->
-				  extract_numbered_transitions(FSM, [])
-			  end, NumberedFSMs),
-	    CleanStates =
-		lists:map(fun (NStates) ->
-				  clean_states(NStates, [])
-			  end, NumberedStates),
-	    lists:map(fun ({CStates, NTransitions}) ->
-			      {CStates, NTransitions, 
-			       {autogen_possible, is_deterministic(NTransitions)}}
-		      end, lists:zip(CleanStates, NumberedTransitions));
+	    case proplists:get_value(transactional, Opt, false) of
+		true  ->
+		    LFSMs = rsort_fsms(SortedEventSource),
+		    Nodes = lists:map(fun labelled_fsms_to_nodes/1, LFSMs),
+		    UniqueTs =
+			lists:map(fun (X) -> collect_uniques(X, []) end,
+				  map2(fun (Node, LabelledFSM) ->
+					       combine(Node, LabelledFSM)
+				       end, Nodes, LFSMs, [])),
+		    Uniques = ordsets:from_list(UniqueTs),
+		    CombinedFSMs =
+			lists:map(fun (UniqueFSM) ->
+					  lists:map(fun to_node/1,
+						    [extract_missing_states(UniqueFSM, existing_states(UniqueFSM, []), [])])
+					      ++ UniqueFSM
+				  end, Uniques),
+		    NumberedStates =
+			lists:map(fun (CombinedFSM) ->
+					  extract_numbered_states(0, CombinedFSM, [])
+				  end, CombinedFSMs),
+		    NumberedFSMs =
+			map2(fun (FSM, NStates) ->
+				     number_fsm(FSM, NStates, [])
+			     end, CombinedFSMs, NumberedStates, []),
+		    NumberedTransitions =
+			lists:map(fun (FSM) ->
+					  extract_numbered_transitions(FSM, [])
+				  end, NumberedFSMs),
+		    CleanStates =
+			lists:map(fun (NStates) ->
+					  clean_states(NStates, [])
+				  end, NumberedStates),
+		    lists:map(fun ({CStates, NTransitions}) ->
+				      {CStates, NTransitions, 
+				       {autogen_possible, is_deterministic(NTransitions)}}
+			      end, lists:zip(CleanStates, NumberedTransitions));
+		false ->
+		    Nodes    = lists:map(fun labelled_fsms_to_nodes/1, LabelledFSMs),
+		    UniqueTs = 
+			lists:map(fun (X) -> collect_uniques(X, []) end,
+				  map2(fun (Node, LabelledFSM) ->
+					       combine(Node, LabelledFSM)
+				       end, Nodes, LabelledFSMs, [])),
+		    Uniques  = ordsets:from_list(UniqueTs),
+		    CombinedFSMs = 
+			lists:map(fun (UniqueFSM) ->
+					  lists:map(fun to_node/1, 
+						    [extract_missing_states(UniqueFSM, existing_states(UniqueFSM, []), [])])
+					      ++ UniqueFSM
+				  end, Uniques),
+		    NumberedStates = 
+			lists:map(fun (CombinedFSM) ->
+					  extract_numbered_states(0, CombinedFSM, [])
+				  end, CombinedFSMs),
+		    NumberedFSMs = 
+			map2(fun (FSM, NStates) ->
+				     number_fsm(FSM, NStates, [])
+			     end, CombinedFSMs, NumberedStates, []),
+		    NumberedTransitions =
+			lists:map(fun (FSM) ->
+					  extract_numbered_transitions(FSM, [])
+				  end, NumberedFSMs),
+		    CleanStates =
+			lists:map(fun (NStates) ->
+					  clean_states(NStates, [])
+				  end, NumberedStates),
+		    lists:map(fun ({CStates, NTransitions}) ->
+				      {CStates, NTransitions, 
+				       {autogen_possible, is_deterministic(NTransitions)}}
+			      end, lists:zip(CleanStates, NumberedTransitions))
+	    end;
 	false ->
 	    Nodes   = labelled_fsms_to_nodes(LabelledFSMs),
 	    Uniques = collect_uniques(combine(Nodes, LabelledFSMs), []),
@@ -283,6 +331,13 @@ generate_states(SortedFSMs) ->
 	      end, SortedFSMs).
 
 %%
+rremove_timestamp({_TS, StateFrom, Transition, StateTo}) ->
+    {StateFrom, Transition, StateTo}.
+
+rremove_timestamps(FSMs) ->
+    lists:map(fun (FSM) -> lists:map(fun rremove_timestamp/1, FSM) end, FSMs).
+
+%%
 remove_timestamp({_TS, Transition, State}) -> 
     {Transition, State}.
 
@@ -323,6 +378,26 @@ collect_uniques([], R) ->
 collect_uniques([{P,L}|Nodes], R) ->
     collect_uniques(Nodes, [{P,ordsets:from_list(L)}|R]).
 
+%% @doc Resolved instances -> FSMs
+extract_rtimed_fsms(SortedEventSource) ->
+    exa_sm:extract_resolved_states_and_transitions(
+      exa_sm:split_by_instance_key(SortedEventSource, exa_sm:unique_instance_keys(SortedEventSource), [])
+     ).
+
+uorder_rfsms(SortedEventSource) ->
+    lists:map(fun (FSM) ->
+		      lists:usort(
+			fun ({TS1, _, _, _}, {TS2, _, _, _}) ->
+				Timestamp1 = lists:map(fun ({V, _K}) -> V end, TS1),
+				Timestamp2 = lists:map(fun ({V, _K}) -> V end, TS2),
+				Timestamp1 < Timestamp2
+			end, FSM)
+	      end, extract_rtimed_fsms(SortedEventSource)).
+
+rsort_fsms(SortedEventSource) ->
+    rremove_timestamps(uorder_rfsms(SortedEventSource)).
+
+%% @doc Flat instances -> FSMs
 extract_timed_fsms(SortedEventSource) ->
     exa_sm:extract_flat_states_and_transitions(
       exa_sm:split_by_instance_key(SortedEventSource, exa_sm:unique_instance_keys(SortedEventSource), [])
@@ -456,11 +531,17 @@ write_transition(IoDevice, {FromN, ToN, Label}) when is_list(Label) ->
 write_transitions(_IoDevice, []) -> ok;
 write_transitions(IoDevice, [{FromN, Transition, ToN}|Transitions]) when is_list(Transition) -> 
     write_transition(IoDevice, {FromN, ToN, Transition}),
+    write_transitions(IoDevice, Transitions);
+write_transitions(IoDevice, [{FromN, Transition, ToN}|Transitions]) when is_atom(Transition) -> 
+    write_transition(IoDevice, {FromN, ToN, atom_to_list(Transition)}),
     write_transitions(IoDevice, Transitions).
 
 write_transitions(_IoDevice, [], _FromN, _ToN) -> ok;
 write_transitions(IoDevice, [{Transition, _State}|FSM], FromN, ToN) when is_list(Transition) -> 
     write_transition(IoDevice, {FromN, ToN, Transition}),
+    write_transitions(IoDevice, FSM, FromN+1, ToN+1);
+write_transitions(IoDevice, [{Transition, _State}|FSM], FromN, ToN) when is_atom(Transition) ->
+    write_transition(IoDevice, {FromN, ToN, atom_to_list(Transition)}),
     write_transitions(IoDevice, FSM, FromN+1, ToN+1).
 
 write_state_machine(IoDevice, _Key, FlatInstance) ->
