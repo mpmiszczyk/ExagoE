@@ -219,40 +219,11 @@ These are advanced fields that should be used when checking the consistency of t
 Ensuring the Field Parsers work correctly
 -----------------------------------------
 
-Where the RowFormat is a list of field parsers, the log data is the data file produced by test_csv_log earlier, and the result path is a path of your choice where you wish the resulting data to be placed.
+Where the field format is a list of field parsers, the log data is the list data by using exa_parse:parse earlier.
 
-We can see that a set of events has been produced and that there are no undefined or erroneous values here.
+We can see that a set of results has been produced and that there are no undefined or erroneous values here.
 
 Running the State Machine
 -------------------------
 
-Once you've done all the above steps, you're ready to run your data through the state machine model. 
-
-Heres a summary of what we've done thus far:
-      * Tested our log file and generated a data file from it. This data file was used in subsequent tests, and can be used as reference, but is now optional.
-      * Created a state machine by using the exago_state_machine.hrl header file, and then tested it by checking that it was deterministic, and by looking at the visualization. 
-      * Defined the field format for each row in the log, and thus how it should be parsed. We then used this format to parse the log data, thereby creating some result data representing the parsed source.
-
-So now that we know that our state machine is correct, and that our logs are correctly defined, we can go on to define a function which executes the state machine. 
-
-Here is the function for our tutorial example:
-
-If you run this function as-is, it will return a list of state machine execution results.
- 
-The report will give you a short list of information which isn't very detailed, but narrows down where most problems would lie. Here is the report that you get and what you can gauge from it:
-
-* Did the state machine validated correctly - If you ran the state machine test in the beginning of this tutorial, you already know if the state machine is valid, but this is here in case you skip the user friendly testing functionality.
-* How many event groups were found in the logs - An event group is the instance of a program or process which generated these events. Every event group is executed by the state machine, the events by default are sorted by time (from earliest to latest) - this is also why timestamps are required fields. 
-* How many of event groups finished in an accept state - This tells you whether your program has the behaviour expected by the state machine model or not. 
-* How many transitions failed - If your transitions fail it could be a problem with the input modifier or the appropriate transition does not exist when transitioning from one state to the next according to a specific input. Usually this is a problem with your state machine model. This is useful whilst developing the state machine.
-* How many states failed - States fail only when they do not exist, so this means that your state machine is missing a state.
-* How many constraints fail - Constraints are closures that can test any arbitrary property of your state machine. At the moment the only constraint types supported are time constraints, so if your constraints fail it means that a transition didn't respect some arbitrary time constraint attached to your state machine model. 
-
-Running Exago on Exago
-----------------------
-
-** TODO **
-
-Thats all for now! 
-
-** TODO **
+* TODO
