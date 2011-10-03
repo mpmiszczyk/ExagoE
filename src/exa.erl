@@ -37,43 +37,44 @@
 -export([generate_uniques/2, generate_uniques/3]).
 -export([generate_combined/2, generate_combined/3]).
 %%-export([execute/0, execute_multiple/0]).
+-export([execute_fsm_source/2, execute_fsm_fsm/2]).
 -export([generate_quickcheck_interface/0, enable_ttb_trace/1]).
 
 generate_uniques(EventSource, Opt) ->
     Uniques = exa_sm:generate_state_machine(EventSource, [{uniques, true}]),
     case proplists:get_value(visualize, Opt, false) of
-	{true, BasePath} -> exa_sm:generate_visualizations(BasePath, Uniques, 0);
-	false            -> ok
+        {true, BasePath} -> exa_sm:generate_visualizations(BasePath, Uniques, 0);
+        false            -> ok
     end, Uniques.
 
 generate_uniques(EventSource, StateFormat, Opt) ->
     AugmentedUniques = 
-	case proplists:get_value(multiple_state_formats, Opt, false) of
-	    true  -> Uniques = exa_sm:generate_state_machine(EventSource, [{uniques, true}]),
-		     exa_sm:augment_models(Uniques, StateFormat);
-	    false -> Uniques = exa_sm:generate_state_machine(EventSource, [{uniques, true}]),
-		     lists:map(fun (Unique) ->
-				       exa_sm:augment_model(Unique, StateFormat)
-			       end, Uniques)
-	end,
+        case proplists:get_value(multiple_state_formats, Opt, false) of
+            true  -> Uniques = exa_sm:generate_state_machine(EventSource, [{uniques, true}]),
+                     exa_sm:augment_models(Uniques, StateFormat);
+            false -> Uniques = exa_sm:generate_state_machine(EventSource, [{uniques, true}]),
+                     lists:map(fun (Unique) ->
+                                       exa_sm:augment_model(Unique, StateFormat)
+                               end, Uniques)
+        end,
     case proplists:get_value(visualize, Opt, false) of
-	{true, BasePath} -> exa_sm:generate_visualizations(BasePath, AugmentedUniques, 0);
-	false            -> ok
+        {true, BasePath} -> exa_sm:generate_visualizations(BasePath, AugmentedUniques, 0);
+        false            -> ok
     end, AugmentedUniques.
 
 generate_combined(EventSource, Opt) ->
     Combined = exa_sm:generate_state_machine(EventSource, []),
     case proplists:get_value(visualize, Opt, false) of
-	{true, BasePath} -> exa_sm:generate_visualizations(BasePath, [Combined], 0);
-	false            -> ok
+        {true, BasePath} -> exa_sm:generate_visualizations(BasePath, [Combined], 0);
+        false            -> ok
     end, Combined.
 
 generate_combined(EventSource, StateFormat, Opt) ->
     Combined = exa_sm:generate_state_machine(EventSource, []),
     AugmentedCombined = exa_sm:augment_model(Combined, StateFormat),
     case proplists:get_value(visualize, Opt, false) of
-	{true, BasePath} -> exa_sm:generate_visualizations(BasePath, [AugmentedCombined], 0);
-	false            -> ok
+        {true, BasePath} -> exa_sm:generate_visualizations(BasePath, [AugmentedCombined], 0);
+        false            -> ok
     end, AugmentedCombined.
 
 generate_quickcheck_interface() ->

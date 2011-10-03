@@ -35,6 +35,7 @@
 -module(exa_es).
 
 -export([collect/3, collect/4, combine/1, sort_events/1]).
+-export([source_transitions/1]).
 
 %% @doc Combines Event Sources based on the type of combination, which can be either 'absorb' or 
 %% 'append'. The difference between the two is that absorb is used where relational log data is 
@@ -47,10 +48,10 @@
 %%
 sort_events(StrippedSources) ->
     lists:sort(fun (A, B) ->
-		       TA = exa_es_util:extract_field_value_by_id(timestamp, A),
-		       TB = exa_es_util:extract_field_value_by_id(timestamp, B),
-		       TA > TB
-	       end, StrippedSources).
+                       TA = exa_es_util:extract_field_value_by_id(timestamp, A),
+                       TB = exa_es_util:extract_field_value_by_id(timestamp, B),
+                       TA > TB
+               end, StrippedSources).
 
 %% combine
 extract_transaction(FieldSet) ->
@@ -91,10 +92,10 @@ extract_by_key(Key, [{ResultType, {OtherKey, TransactionFields, Rest}, FormatRes
 
 %% @doc combine_transaction
 combine_transaction([{ResultType0, {Key, Fields0, Rest0}, F0}, 
-		     {ResultType1, {Key, Fields1, Rest1}, F1}]) ->
+                     {ResultType1, {Key, Fields1, Rest1}, F1}]) ->
     {ResultType0, combine_transaction_fields(Fields0, Rest0, Fields1, Rest1), F0};
 combine_transaction([{ResultType0, {Key0, Fields0, Rest0}, F0},
-		     {ResultType1, {Key1, Fields1, Rest1}, F1}]) ->
+                     {ResultType1, {Key1, Fields1, Rest1}, F1}]) ->
     {error, fatal_different_key};
 combine_transaction(L) ->
     {error, combining_transaction}.
@@ -110,20 +111,20 @@ combine_transaction_fields(Fields0, Rest0, Fields1, Rest1) ->
     TT0 = proplists:lookup(transaction_type, Fields0),
     TT1 = proplists:lookup(transaction_type, Fields1),
     case TT0 of
-	{transaction_type, _, {field_value, 'receive'}} ->
-	    case TT1 of
-		{transaction_type, _, {field_value, send}} ->
-		    resolve_transaction(Fields1, Rest1, Fields0, Rest0);
-		{transaction_type, _, {field_value, 'receive'}} ->
-		    {error, multiple_receives}
-	    end;
-	{transaction_type, _, {field_value, send}} ->
-	    case TT1 of
-		{transaction_type, _, {field_value, send}} ->
-		    {error, multiple_sends};
-		{transaction_type, _, {field_value, 'receive'}} ->
-		    resolve_transaction(Fields0, Rest0, Fields1, Rest1)
-	    end
+        {transaction_type, _, {field_value, 'receive'}} ->
+            case TT1 of
+                {transaction_type, _, {field_value, send}} ->
+                    resolve_transaction(Fields1, Rest1, Fields0, Rest0);
+                {transaction_type, _, {field_value, 'receive'}} ->
+                    {error, multiple_receives}
+            end;
+        {transaction_type, _, {field_value, send}} ->
+            case TT1 of
+                {transaction_type, _, {field_value, send}} ->
+                    {error, multiple_sends};
+                {transaction_type, _, {field_value, 'receive'}} ->
+                    resolve_transaction(Fields0, Rest0, Fields1, Rest1)
+            end
     end.
 
 %% @doc combine
@@ -158,27 +159,27 @@ collect_([], absorb, StateOption, Sources) ->
     Result;
 collect_([{EventSourceName, Files, RowFormat}|EventSources], CombinationType, StateOption, Sources) ->
     collect_(EventSources, CombinationType, StateOption,
-	     [{EventSourceName, 
-	       lists:flatten([exa_field_fmt:apply_field_format(exa_parse:parse(File), RowFormat)
-			      || File <- Files])}|Sources]).
+             [{EventSourceName, 
+               lists:flatten([exa_field_fmt:apply_field_format(exa_parse:parse(File), RowFormat)
+                              || File <- Files])}|Sources]).
 
 %%
 apply_modifiers([], CollectedSources) ->
     CollectedSources;
 apply_modifiers([{result_modifier, {Module, Function}}|Transmuters], CollectedSources) ->
     apply_modifiers(Transmuters, lists:foldl(fun (Result, Rest) ->
-						     [Module:Function(Result, CollectedSources)|Rest]
-					     end, [], CollectedSources));
+                                                     [Module:Function(Result, CollectedSources)|Rest]
+                                             end, [], CollectedSources));
 apply_modifiers([{event_modifier, {Module, Function}}|Transmuters], CollectedSources) ->
     apply_modifiers(Transmuters, lists:map(fun ({ResultType, Event, FormatResult}) ->
-						   {ResultType,
-						    lists:reverse(
-						      lists:foldl(fun (E, Rest) -> 
-									  [Module:Function(E, Event)|Rest]
-								  end, [], Event)
-						     ), 
-						    FormatResult}
-					   end, CollectedSources));
+                                                   {ResultType,
+                                                    lists:reverse(
+                                                      lists:foldl(fun (E, Rest) -> 
+                                                                          [Module:Function(E, Event)|Rest]
+                                                                  end, [], Event)
+                                                     ), 
+                                                    FormatResult}
+                                           end, CollectedSources));
 apply_modifiers([_|Transmuters], CollectedSources) ->
     apply_modifiers(Transmuters, CollectedSources).
 
@@ -189,16 +190,16 @@ apply_filters([{result_filter, {Module, Function}}|Transmuters], CollectedSource
     apply_filters(Transmuters, lists:filter(fun (Result) -> Module:Function(Result) end, CollectedSources));
 apply_filters([{event_filter, {Module, Function}}|Transmuters], CollectedSources) ->
     apply_filters(Transmuters, lists:map(fun ({_ResultType, Event, _FormatResult}) ->
-						lists:filter(fun (E) -> Module:Function(E) end, Event)
-					 end, CollectedSources));
+                                                lists:filter(fun (E) -> Module:Function(E) end, Event)
+                                         end, CollectedSources));
 apply_filters([_|Transmuters], CollectedSources) ->
     apply_filters(Transmuters, CollectedSources).
 
 %%
 source_transitions(EventSource) ->
     lists:map(fun (Instance) ->
-		      [Transition || {Transition, _State} <- Instance]
-	      end, exa_sm:sort_fsms(exa_sm:strip_results([EventSource]))).
+                      [Transition || {Transition, _State} <- Instance]
+              end, exa_sm:sort_fsms(exa_sm:strip_results([EventSource]))).
 
 %%
 resolve_foreign_keys(EventSources, StateOption) ->
@@ -208,19 +209,19 @@ resolve_foreign_keys_([], _StateOption, _EventSourcesUnchanged, ResolvedSources)
     lists:reverse(ResolvedSources);
 resolve_foreign_keys_([{EventSourceName, Events}|EventSources], StateOption, EventSourcesUnchanged, ResolvedSources) ->
     resolve_foreign_keys_(EventSources, StateOption, EventSourcesUnchanged,
-			  [[resolve_foreign_key(Event, EventSourceName, StateOption, 
-						exa_es_util:remove_event_source_by_name(EventSourceName, EventSourcesUnchanged))
-			    || Event <- Events]|ResolvedSources]).
+                          [[resolve_foreign_key(Event, EventSourceName, StateOption, 
+                                                exa_es_util:remove_event_source_by_name(EventSourceName, EventSourcesUnchanged))
+                            || Event <- Events]|ResolvedSources]).
 
 resolve_foreign_key({ResultType, FieldList, FormatStatus}, EventSourceName, StateOption, EventSources) ->
     case StateOption of
-	source_state ->
-	    {ResultType, lists:flatten([{state, 
-					 {field_identifier, EventSourceName},
-					 {field_value, EventSourceName}}] ++
-					   [resolve_field(Field, EventSources) || Field <- FieldList]), FormatStatus};
-	_Other       ->
-	    {ResultType, lists:flatten([resolve_field(Field, EventSources) || Field <- FieldList]), FormatStatus}
+        source_state ->
+            {ResultType, lists:flatten([{state, 
+                                         {field_identifier, EventSourceName},
+                                         {field_value, EventSourceName}}] ++
+                                           [resolve_field(Field, EventSources) || Field <- FieldList]), FormatStatus};
+        _Other       ->
+            {ResultType, lists:flatten([resolve_field(Field, EventSources) || Field <- FieldList]), FormatStatus}
     end.
 
 %% Here is where a check for duplication would occur
@@ -235,22 +236,22 @@ resolve_field(OtherField, _EventSources) ->
 resolve_reference(_ForeignReference, [], ResolvedFields) ->
     lists:reverse(ResolvedFields);
 resolve_reference({internal_reference, FieldIdentifier, {EventSourceNameReference, ParsedField, ForeignKey, FieldList}}, 
-		  [{EventSourceName, Events}|EventSources], ResolvedFields) ->
+                  [{EventSourceName, Events}|EventSources], ResolvedFields) ->
     case EventSourceName =:= EventSourceNameReference of
-	true  -> 
-	    resolve_reference(
-	      {internal_reference, FieldIdentifier, {EventSourceNameReference, ParsedField, ForeignKey, FieldList}}, 
-	      EventSources, 
-	      [resolve_reference_field(
-		 {internal_reference, FieldIdentifier, {ParsedField, ForeignKey, FieldList}},
-		 Events
-		)|ResolvedFields]
-	     );
-	false -> 
-	    resolve_reference(
-	      {internal_reference, FieldIdentifier, {EventSourceNameReference, ParsedField, ForeignKey, FieldList}},
-	      EventSources, ResolvedFields
-	     )
+        true  -> 
+            resolve_reference(
+              {internal_reference, FieldIdentifier, {EventSourceNameReference, ParsedField, ForeignKey, FieldList}}, 
+              EventSources, 
+              [resolve_reference_field(
+                 {internal_reference, FieldIdentifier, {ParsedField, ForeignKey, FieldList}},
+                 Events
+                )|ResolvedFields]
+             );
+        false -> 
+            resolve_reference(
+              {internal_reference, FieldIdentifier, {EventSourceNameReference, ParsedField, ForeignKey, FieldList}},
+              EventSources, ResolvedFields
+             )
     end.
 
 %% @doc
@@ -262,14 +263,14 @@ resolve_reference_field_(_InternalReference, [], []) ->
 resolve_reference_field_(_InternalReference, [], Result) ->
     lists:reverse(Result);
 resolve_reference_field_({internal_reference, FieldIdentifier, {ParsedField, ForeignKeyIdentifier, FieldList}}, 
-			 [{_ResultType, Fields, _ResultStatus}|Events], Result) ->
+                         [{_ResultType, Fields, _ResultStatus}|Events], Result) ->
     case exa_es_util:find_field_by_identifier_and_value(ForeignKeyIdentifier, ParsedField, Fields) of
-	{success, _Field} -> absorb_fields(FieldList, Fields);
-	undefined         -> 
-	    resolve_reference_field_(
-	      {internal_reference, FieldIdentifier, {ParsedField, ForeignKeyIdentifier, FieldList}},
-	      Events, Result
-	      )
+        {success, _Field} -> absorb_fields(FieldList, Fields);
+        undefined         -> 
+            resolve_reference_field_(
+              {internal_reference, FieldIdentifier, {ParsedField, ForeignKeyIdentifier, FieldList}},
+              Events, Result
+              )
     end.
 
 %% @doc 
@@ -280,8 +281,8 @@ absorb_fields_([], _Events, Result) ->
     lists:reverse(Result);
 absorb_fields_([FieldIdentifier|FieldIdentifierList], Events, Result) ->
     case exa_es_util:find_field_by_identifier(FieldIdentifier, Events) of 
-	{success, Field} -> 
-	    absorb_fields_(FieldIdentifierList, Events, [Field|Result]);
-	undefined        ->
-	    absorb_fields_(FieldIdentifierList, Events, [{resolution_error, field_resolution_failed}])
+        {success, Field} -> 
+            absorb_fields_(FieldIdentifierList, Events, [Field|Result]);
+        undefined        ->
+            absorb_fields_(FieldIdentifierList, Events, [{resolution_error, field_resolution_failed}])
     end.
