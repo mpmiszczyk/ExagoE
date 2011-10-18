@@ -242,7 +242,7 @@ generate_state_machine(EventSource, Opt) ->
                                   end, CombinedFSMs),
                     NumberedFSMs = 
                         map2(fun (FSM, NStates) ->
-				 number_fsm(FSM, NStates, [])
+                                 number_fsm(FSM, NStates, [])
                              end, CombinedFSMs, NumberedStates, []),
                     NumberedTransitions =
                         lists:map(fun (FSM) ->
@@ -454,17 +454,44 @@ extract_missing_states([], _, Result) ->
 extract_missing_states([{_S, StateList}|Nodes], ExistingStates, Result) ->
   extract_missing_states(Nodes, ExistingStates, [find_missing_states(StateList, ExistingStates, [])|Result]).
 
-extract_numbered_states(_N, [], R) ->
-  lists:reverse(R);
-extract_numbered_states(N, [{A,_L}|Nodes], R) ->
-  extract_numbered_states(N+1, Nodes, [{N,A}|R]).
+extract_(TSs) ->
+  [State || {_Transition, State} <- TSs].
+
+state_exists(_S, []) ->
+  false;
+state_exists(S, [{_N, S}|_L]) ->
+  true;
+state_exists(S, [{N2, S2}|L]) ->
+  state_exists(S, L).
+
+append_if_missing(L1, [], _N) ->
+  L1;
+append_if_missing(L1, [X|L2], N) ->
+  case state_exists(X, L1) of
+    true ->
+      append_if_missing(L1, L2, N);
+    false ->
+      append_if_missing([{N, X}|L1], L2, N+1)
+  end.
+
+extract_numbered_states(A, Nodes, R) ->
+  extract_numbered_states(A, Nodes, R, []).
+
+extract_numbered_states(_N, [], R, R2) ->
+  append_if_missing(lists:reverse(R), 
+		    lists:foldl(fun (X, R) -> 
+				    X ++ R 
+				end, [], R2), 
+		    length(R));
+extract_numbered_states(N, [{A,L}|Nodes], R, R2) ->
+  extract_numbered_states(N+1, Nodes, [{N,A}|R], [extract_(L)|R2]).
 
 lookup_state_number({T, S}, [{N, S}|_NumberedStates]) ->
-    {T, {N, S}};
+  {T, {N, S}};
 lookup_state_number({T, S0}, [{_N, _S1}|NumberedStates]) ->
-    lookup_state_number({T, S0}, NumberedStates);
+  lookup_state_number({T, S0}, NumberedStates);
 lookup_state_number(_S, [{N, _S}|_NumberedStates]) ->
-    N;
+  N;
 lookup_state_number(S0, [{_N, _S1}|NumberedStates]) ->
   lookup_state_number(S0, NumberedStates).
 
