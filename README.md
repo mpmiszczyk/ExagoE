@@ -24,17 +24,21 @@ Okay, fine, but how do I run this thing?
 ----------------------------------------
 
 At the moment you can run it by cloning the repository, then doing:
+```bash
        make
        ./start-exago.sh
+```       
 
 To run an example, it is recommended you look at the short code that specifies the format of the files. 
 
 For the sms_example:
+```erlang
     cd("/path/to/ExagoE/src/examples/sms_example/").
     c(sms_example).
     sms_example:generate_uniques().    %% shows the unique finite state machine behaviours found in the logs
     sms_example:generate_combined().   %% shows the combined finit state machine behaviour from the uniques
     sms_example:generate_model(Path).  %% generates FSM visualizations at current pwd, Path is a temp dir to store the .dot files 
+```
 
 Tutorial 1 - Defining and testing a basic log
 =============================================
@@ -53,9 +57,11 @@ For now, unless you are using rfc3339 timestamps, you may use the "partial" time
 
 As an example, the following timestamp format:
 
+```erlang
   timestamp_format() ->
     [date_fullyear, date_month, date_mday, time_hour, time_minute,
      time_second, time_secfrac].
+```
 
 Parses any of the following timestamps: "2010-10-09 12:10:01:00", "2010~10~09T12~10~01~001234" ...
 
@@ -63,7 +69,9 @@ Parses any of the following timestamps: "2010-10-09 12:10:01:00", "2010~10~09T12
 
 All of the files for this tutorial may be found under src/examples/tutorial_example. The main log file that we will use as an example is described below:
 
-A simple log, and the one that I will use for this tutorial (sample_1.log) is:
+A simple log, and the one that I will use for this tutorial (`sample_1.log`) is:
+
+```
     1,1,2010-10-12 16:00:00:0000000,forward
     1,2,2010-10-12 16:00:01:0000000,forward
     1,3,2010-10-12 16:00:02:0000000,forward
@@ -71,15 +79,19 @@ A simple log, and the one that I will use for this tutorial (sample_1.log) is:
     2,1,2010-10-12 16:01:00:0000000,forward
     2,2,2010-10-12 16:01:01:0000000,forward
     2,3,2010-10-12 16:01:02:0000000,stop
+```
 
 In this log file the first field represents the instance_key, the second field is a foreign_key which is to augment the row with a state value, the third field is a timestamp, and the last field is the value of the state machine transition.
 
-The log whose state values are absorbed is also provided (sample_2.log):
+The log whose state values are absorbed is also provided (`sample_2.log`):
+
+```
     1,start
     2,state_1
     3,state_2
     4,state_3
     5,state_4
+```
 
 In this log file the first field represents an integer annotation which will augment the rows in sample_1 with the second field, which represents a state.
 
@@ -89,10 +101,15 @@ Parsing Logs
 The first thing to do is to run the system using ./start-exago.sh. Erlang will then run and you will have access to a shell that contains the functionality required to proceed with the tutorial.
 
 To test that your log file parses adequately as a CSV file, to generate the next representation of the data, or to see what the data format should be before proceeding, run:
+
+```erlang
     cd("/path/to/code/").
     exa_parse:parse({csv, absolute, "/path/to/csv_file.csv"}).
+```
 
 Using the tutorial log, the resulting data looks like this:
+
+```erlang
     exa_parse:parse({csv, absolute, "./log_files/sample_1.log"}).
     [["1","1","2010-10-12 16:00:00:0000000","forward"],
      ["1","2","2010-10-12 16:00:01:0000000","forward"],
@@ -108,6 +125,7 @@ Using the tutorial log, the resulting data looks like this:
      ["3","state_2"],
      ["4","state_3"],
      ["5","state_4"]]
+```
 
 Custom log format
 -----------------
@@ -118,6 +136,7 @@ Next, Exago needs to know what each field is meant to represent in the log. For 
 
 A row format is an ordered list of field parser functions. The location in the list where the parser functions are placed is important as this is the order that each field row is parsed. You can choose to use the default parsers provided by Exago, or you can replace them with your own. If you do decide to create your own, you should take a look at how the parsers that currently exist in exa_field_parser work. 
 
+```erlang
     timestamp_format() ->
       [date_fullyear, date_month, date_mday,
        time_hour, time_minute, time_second,
@@ -132,6 +151,7 @@ A row format is an ordered list of field parser functions. The location in the l
     row_format_2() ->
       [exa_field:annotation("linkKey", integer),
        exa_field:state("state", string)].
+```
 
 Creating an Event Source
 ------------------------
@@ -139,7 +159,8 @@ Creating an Event Source
 Once you are happy that the file parses adequately, and that the row format matches your fields, you may specify it as an event source. 
 
 To do so, you may specify it as follows:
-    include_files_1() ->
+```erlang   
+   include_files_1() ->
       [{csv, absolute, "./log_files/sample_1.log"}].
 
     include_files_2() ->
@@ -150,11 +171,13 @@ To do so, you may specify it as follows:
 
     event_source_2() ->
       {"sample_2", include_files_2(), row_format_2()}.
+```
 
 The options here are currently 'absolute' and 'wildcard', depending on whether you wish your event source to be one or a combination of different files.
 
 Once you are happy with your event source, you may collect it into a combined event source, which takes care of resolving foreign keys, generating state and other features. In our example we are absorbing a state field from an external log which contains no relevant data to be kept so we pass the option "absorb", and we give the "implicit_state" option as the second option since we don't want to generate some state automatically. 
 
+```erlang
     combined_event_source() ->
         %% from here you can:
         %% 1. collect event sources by absorption
@@ -162,6 +185,7 @@ Once you are happy with your event source, you may collect it into a combined ev
         %% 3. use implicit state
         %% 4. use source_state (state as the filename)
         {"sample_combined", exa_es:collect([event_source_1(), event_source_2()], absorb, implicit_state)}.
+```
 
 The details for absorb and implicit state, and additional features such as filters and modifiers will be described in a later tutorial.
 
@@ -190,20 +214,28 @@ The Field Parsers
 
 The list of default parsers are:
 
+```erlang
     exa_field:timestamp(Name, partial, timestamp_format())
     exa_field:timestamp(Name, rfc3339)
+```
 
 This represents the location in the row where the timestamp can be found.
 
+```erlang
     exa_field:annotation(Name, Type)
+```
 
 An annotation is any arbitrary field that you wish to label in some way. The label should be a string. Annotations are useful in connection with input modifiers, as we'll see later.
 
+```erlang
     exa_field:instance_key(Name, Type)
+```
 
 The instance_key parser expects an key value representing the instance_key of some group (as explained above). 
 
+```erlang
     exa_field:transition(Name, Type)
+```
 
 Represents where the transition_input is, can be any kind of data, but parses as a string.
 
@@ -211,8 +243,10 @@ Represents where the transition_input is, can be any kind of data, but parses as
 
 This is perhaps the most complicated field parser, and represents a parser for an Id referencing a value found in another log. Even required fields may be specified as foreign keys. For example, if you wish for a group_id to come from a different log named "GroupIdLog", where the field in the "GroupIdLog" is an annotation with the label "ForeignGroupId", you would use: exago_field:foreign_key("GroupIdLog", "ForeignGroupId", [group_id], exago_field:parser(group_id)). The inclusion of this type of parser means that logs can be seen from the perspective of a relational database. This field will be exemplified in a later tutorial.
 
+```erlang
      exa_field:transaction_key(Name, Type)
      exa_field:transaction_type(Name, Type)
+```
 
 These are advanced fields that should be used when checking the consistency of the transactions in a process driven program. They will be detailed in a more advanced tutorial, but if you wish to see how they work you may check the ttb_example in the examples sub-directory.
 
