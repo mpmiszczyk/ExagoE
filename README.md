@@ -184,7 +184,10 @@ combined_event_source() ->
     %% 2. collect event sources by appending
     %% 3. use implicit state
     %% 4. use source_state (state as the filename)
-    {"sample_combined", exa_es:collect([event_source_1(), event_source_2()], absorb, implicit_state)}.
+    {"sample_combined", exa_es:collect([ event_source_1(),
+                                         event_source_2()],
+                                       absorb,
+                                       implicit_state)}.
 ```
 
 The details for absorb and implicit state, and additional features such as filters and modifiers will be described in a later tutorial.
@@ -198,7 +201,7 @@ C = exa_sm:generate_state_machine(combined_event_source(), Options).
 ```
 One may also wish to generate a visualization of a combined state machine, as follows:
 ```erlang
-exa_sm:generate_visualizations(TempPath, [C], 0).`
+exa_sm:generate_visualizations(TempPath, [C], 0).
 ```
 
 Or, if you wish to generate many visualizations of e.g the unique behaviours, that is also a possibility:
@@ -247,10 +250,15 @@ exa_field:transition(Name, Type)
 Represents where the transition_input is, can be any kind of data, but parses as a string.
 
 ```erlang
-    exa_field:foreign_key(EventSourceName, FieldKey, FieldList, Parser)
+exa_field:foreign_key(EventSourceName, FieldKey, FieldList, Parser)
 ```
 
-This is perhaps the most complicated field parser, and represents a parser for an Id referencing a value found in another log. Even required fields may be specified as foreign keys. For example, if you wish for a group_id to come from a different log named "GroupIdLog", where the field in the "GroupIdLog" is an annotation with the label "ForeignGroupId", you would use: `exago_field:foreign_key("GroupIdLog", "ForeignGroupId", [group_id], exago_field:parser(group_id))`. The inclusion of this type of parser means that logs can be seen from the perspective of a relational database. This field will be exemplified in a later tutorial.
+This is perhaps the most complicated field parser, and represents a parser for an Id referencing a value found in another log. Even required fields may be specified as foreign keys. For example, if you wish for a group_id to come from a different log named "GroupIdLog", where the field in the "GroupIdLog" is an annotation with the label "ForeignGroupId", you would use:
+```erlang
+exago_field:foreign_key("GroupIdLog", "ForeignGroupId", [group_id], exago_field:parser(group_id)).
+```
+
+The inclusion of this type of parser means that logs can be seen from the perspective of a relational database. This field will be exemplified in a later tutorial.
 
 ```erlang
 exa_field:transaction_key(Name, Type)
@@ -262,8 +270,10 @@ These are advanced fields that should be used when checking the consistency of t
 Ensuring the Field Parsers work correctly
 -----------------------------------------
 
-Where the field format is a list of field parsers, the log data is the list data by using exa_parse:parse earlier.
-
+Where the field format is a list of field parsers, the log data is the list data by using 
+```erlang
+exa_parse:parse earlier.
+```
 We can see that a set of results has been produced and that there are no undefined or erroneous values here.
 
 Running the State Machine
